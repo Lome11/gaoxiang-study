@@ -23,6 +23,9 @@
         <!-- 章节进度 -->
         <ChapterProgress :chapters="sortedChapters" />
 
+        <!-- 模拟考试进度 -->
+        <MockProgress :progress="mockProgress" />
+
         <!-- 录入表单 -->
         <RecordForm
           @add-record="handleAddRecord"
@@ -83,6 +86,7 @@ import AppHeader      from './components/AppHeader.vue'
 import SyncModal      from './components/SyncModal.vue'
 import SummaryCard    from './components/SummaryCard.vue'
 import ChapterProgress from './components/ChapterProgress.vue'
+import MockProgress    from './components/MockProgress.vue'
 import RecordForm     from './components/RecordForm.vue'
 import DailyChart     from './components/DailyChart.vue'
 import AccuracyChart  from './components/AccuracyChart.vue'
@@ -111,6 +115,7 @@ const {
   accuracyChartData,
   mockChartData,
   mockStats,
+  mockProgress,
   recentRecords,
   recentMockExams,
   addRecord,

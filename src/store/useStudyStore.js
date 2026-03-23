@@ -20,7 +20,8 @@ export const DEFAULT_CHAPTERS = [
 // 兼容旧代码使用的 CHAPTERS_META（从 studyData 动态派生，下方导出）
 export let CHAPTERS_META = {}
 
-export const EXAM_DATE = new Date(2026, 4, 16) // 2026年5月16日
+// 考试日期：2026-05-23（距2026-03-23恰好61天）
+export const EXAM_DATE = new Date(2026, 4, 23) // 2026年5月23日
 
 export const STORAGE_KEY = 'gaoxiang_study_data'
 export const GIST_CONFIG_KEY = 'gaoxiang_gist_config'
@@ -366,19 +367,28 @@ const totalHours = computed(() =>
   Object.values(studyData.chapters).reduce((s, c) => s + c.time, 0)
 )
 
+const MOCK_TOTAL_QUESTIONS = 75 // 每次模拟考试固定75道题
+
 const totalDays = computed(() =>
   new Set(studyData.records.map(r => r.date)).size
 )
 
+// 总做题数 = 章节做题数 + 模拟考试题数（每次75题）
 const totalQuestions = computed(() =>
   studyData.records.reduce((s, r) => s + r.questionsDone, 0)
+  + studyData.mockExams.length * MOCK_TOTAL_QUESTIONS
 )
 
+// 平均正确率 = (章节答对数 + 模拟答对数) / 总题数
 const avgAccuracy = computed(() => {
-  const total = totalQuestions.value
+  const chapterTotal = studyData.records.reduce((s, r) => s + r.questionsDone, 0)
+  const chapterCorrect = studyData.records.reduce((s, r) => s + r.correctAnswers, 0)
+  // 模拟：分数即正确率(0-100)，反推答对数 = score/100 * 75
+  const mockTotal = studyData.mockExams.length * MOCK_TOTAL_QUESTIONS
+  const mockCorrect = studyData.mockExams.reduce((s, e) => s + (e.score / 100 * MOCK_TOTAL_QUESTIONS), 0)
+  const total = chapterTotal + mockTotal
   if (total === 0) return '0%'
-  const correct = studyData.records.reduce((s, r) => s + r.correctAnswers, 0)
-  return (correct / total * 100).toFixed(1) + '%'
+  return ((chapterCorrect + mockCorrect) / total * 100).toFixed(1) + '%'
 })
 
 const weakestChapter = computed(() => {
@@ -509,6 +519,38 @@ const recentMockExams = computed(() =>
     .slice(0, 5)
 )
 
+// 模拟考试进度汇总（给进度卡用）
+const mockProgress = computed(() => {
+  const exams = studyData.mockExams
+  const count = exams.length
+  const totalQ = count * MOCK_TOTAL_QUESTIONS
+  const totalCorrect = exams.reduce((s, e) => s + (e.score / 100 * MOCK_TOTAL_QUESTIONS), 0)
+  const avgScore = count > 0 ? (exams.reduce((s, e) => s + e.score, 0) / count) : 0
+  const avgAcc = totalQ > 0 ? (totalCorrect / totalQ * 100) : 0
+  // 按类型分组统计
+  const byType = {}
+  for (const e of exams) {
+    if (!byType[e.type]) byType[e.type] = { count: 0, totalScore: 0 }
+    byType[e.type].count++
+    byType[e.type].totalScore += e.score
+  }
+  const typeStats = Object.entries(byType).map(([type, s]) => ({
+    type,
+    count: s.count,
+    avgScore: (s.totalScore / s.count).toFixed(1),
+  }))
+  return {
+    count,
+    totalQuestions: totalQ,
+    avgScore: avgScore.toFixed(1),
+    avgAccuracy: avgAcc.toFixed(1),
+    typeStats,
+    passRate: count > 0
+      ? ((exams.filter(e => e.score >= 60).length / count) * 100).toFixed(0)
+      : '0',
+  }
+})
+
 // ========== 工具函数 ==========
 export function formatStudyTime(hours) {
   if (hours === 0) return '0h'
@@ -562,6 +604,7 @@ export function useStudyStore() {
     mockStats,
     recentRecords,
     recentMockExams,
+    mockProgress,
 
     // 方法
     loadGistConfig,

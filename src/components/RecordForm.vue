@@ -154,7 +154,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watchEffect, watch } from 'vue'
 import { DEFAULT_CHAPTERS, getTodayString, useStudyStore } from '../store/useStudyStore.js'
 import { useToast } from '../composables/useToast.js'
 
@@ -163,6 +163,7 @@ const { showToast } = useToast()
 const store = useStudyStore()
 
 const todayStr = getTodayString()
+const CHAPTER_CACHE_KEY = 'gaoxiang_selected_chapter'
 
 // 章节列表直接从 store 读取（响应式）
 const chapterList = computed(() => store.studyData.chapterList)
@@ -173,17 +174,29 @@ function isDefaultChapter(key) {
   return defaultKeys.has(key)
 }
 
+// 读取缓存的章节选择，没有则取第一个
+function getInitialChapter() {
+  try {
+    const cached = localStorage.getItem(CHAPTER_CACHE_KEY)
+    if (cached && chapterList.value.some(c => c.key === cached)) return cached
+  } catch {}
+  return chapterList.value[0]?.key || ''
+}
+
 const form = reactive({
-  chapter: computed(() => chapterList.value[0]?.key || '').value || '',
+  chapter: getInitialChapter(),
   date: todayStr,
   questionsDone: '',
   correctAnswers: '',
   studyTime: '',
 })
 
-// 当章节列表变化时，确保 form.chapter 有效
-// （用 watchEffect 保证删除后自动切换）
-import { watchEffect } from 'vue'
+// 章节选择变化时，缓存到 localStorage
+watch(() => form.chapter, (val) => {
+  try { localStorage.setItem(CHAPTER_CACHE_KEY, val) } catch {}
+})
+
+// 当章节列表变化时，确保 form.chapter 有效（如被删除则切换到第一个）
 watchEffect(() => {
   if (chapterList.value.length > 0) {
     const keys = chapterList.value.map(c => c.key)
