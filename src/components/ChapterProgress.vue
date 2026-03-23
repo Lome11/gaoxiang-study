@@ -37,37 +37,25 @@
 
         <!-- 有数据 -->
         <template v-else>
-          <div class="mock-body">
-            <!-- 左：汇总统计（只显示数字，无标签） -->
-            <div class="mock-stats">
-              <span class="mock-val">{{ mock.count }}</span>
-              <span class="mock-val">{{ mock.totalQuestions }}</span>
-              <span class="mock-val" :class="scoreClass">{{ mock.avgScore }}</span>
-              <span class="mock-val" :class="accClass">{{ mock.avgAccuracy }}%</span>
-              <span class="mock-val" :class="passClass">{{ mock.passRate }}%</span>
+          <div class="mock-right">
+            <div class="mock-bar-wrap">
+              <div class="mock-bar-bg">
+                <div
+                  class="mock-bar-fill"
+                  :style="{ width: Math.min(mock.avgAccuracy, 100) + '%', background: barFill }"
+                ></div>
+              </div>
+              <span class="mock-bar-pct">{{ mock.avgAccuracy }}%</span>
             </div>
-
-            <!-- 右：进度条 + 类型分组 -->
-            <div class="mock-right">
-              <div class="mock-bar-wrap">
-                <div class="mock-bar-bg">
-                  <div
-                    class="mock-bar-fill"
-                    :style="{ width: Math.min(mock.avgAccuracy, 100) + '%', background: barFill }"
-                  ></div>
-                </div>
-                <span class="mock-bar-pct">{{ mock.avgAccuracy }}%</span>
-              </div>
-              <div class="type-list">
-                <span
-                  v-for="ts in mock.typeStats"
-                  :key="ts.type"
-                  class="type-tag"
-                  :style="{ borderColor: typeColor(ts.type), color: typeColor(ts.type) }"
-                >
-                  {{ ts.type }} {{ ts.count }}场 均{{ ts.avgScore }}
-                </span>
-              </div>
+            <div class="type-list">
+              <span
+                v-for="ts in mock.typeStats"
+                :key="ts.type"
+                class="type-tag"
+                :style="{ borderColor: typeColor(ts.type), color: typeColor(ts.type) }"
+              >
+                {{ ts.type }} {{ ts.count }}场 均{{ ts.avgScore }}
+              </span>
             </div>
           </div>
         </template>
@@ -104,27 +92,6 @@ function typeColor(type) {
 }
 
 const barFill = computed(() => barColor(parseFloat(props.mock.avgAccuracy)))
-
-const scoreClass = computed(() => {
-  const s = parseFloat(props.mock.avgScore)
-  if (s >= 80) return 'c-green'
-  if (s >= 60) return 'c-yellow'
-  return 'c-red'
-})
-
-const accClass = computed(() => {
-  const a = parseFloat(props.mock.avgAccuracy)
-  if (a >= 80) return 'c-green'
-  if (a >= 60) return 'c-yellow'
-  return 'c-red'
-})
-
-const passClass = computed(() => {
-  const r = parseFloat(props.mock.passRate)
-  if (r >= 80) return 'c-green'
-  if (r >= 50) return 'c-yellow'
-  return 'c-red'
-})
 </script>
 
 <style scoped>
@@ -190,40 +157,16 @@ const passClass = computed(() => {
   padding: 8px 0;
 }
 
-.mock-body {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-
-/* 左侧统计数字 */
-.mock-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex-shrink: 0;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.mock-val {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #9C27B0;
-  line-height: 1.2;
-}
 
 .c-green  { color: #4CAF50 !important; }
 .c-yellow { color: #e07800 !important; }
 .c-red    { color: #f44336 !important; }
 
-/* 右侧：进度条 + 类型标签 */
+/* 进度条 + 类型标签 */
 .mock-right {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  justify-content: center;
 }
 
 .mock-bar-wrap {
