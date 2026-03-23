@@ -116,12 +116,12 @@
       </div>
 
       <div class="form-group">
-        <label>模拟考试分数：</label>
+        <label>答对题数：</label>
         <input
           type="number"
           v-model.number="mockForm.score"
           min="0"
-          max="100"
+          max="75"
           step="0.1"
           placeholder="输入分数（0-100）"
         />
@@ -280,8 +280,8 @@ async function handleAddMock() {
     return
   }
   const score = Number(mockForm.score)
-  if (isNaN(score) || score < 0 || score > 100) {
-    showToast('请输入有效的分数（0-100）', 'error')
+  if (isNaN(score) || score < 0 || score > 75) {
+    showToast('请输入有效的答对题数（0-75）', 'error')
     return
   }
   mockSubmitting.value = true

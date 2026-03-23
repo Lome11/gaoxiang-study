@@ -38,28 +38,13 @@
         <!-- 有数据 -->
         <template v-else>
           <div class="mock-body">
-            <!-- 左：汇总统计 -->
+            <!-- 左：汇总统计（只显示数字，无标签） -->
             <div class="mock-stats">
-              <div class="mock-stat-item">
-                <span class="mock-val">{{ mock.count }}</span>
-                <span class="mock-lbl">总场次</span>
-              </div>
-              <div class="mock-stat-item">
-                <span class="mock-val">{{ mock.totalQuestions }}</span>
-                <span class="mock-lbl">累计做题</span>
-              </div>
-              <div class="mock-stat-item">
-                <span class="mock-val" :class="scoreClass">{{ mock.avgScore }}</span>
-                <span class="mock-lbl">平均分</span>
-              </div>
-              <div class="mock-stat-item">
-                <span class="mock-val" :class="accClass">{{ mock.avgAccuracy }}%</span>
-                <span class="mock-lbl">正确率</span>
-              </div>
-              <div class="mock-stat-item">
-                <span class="mock-val" :class="passClass">{{ mock.passRate }}%</span>
-                <span class="mock-lbl">及格率</span>
-              </div>
+              <span class="mock-val">{{ mock.count }}</span>
+              <span class="mock-val">{{ mock.totalQuestions }}</span>
+              <span class="mock-val" :class="scoreClass">{{ mock.avgScore }}</span>
+              <span class="mock-val" :class="accClass">{{ mock.avgAccuracy }}%</span>
+              <span class="mock-val" :class="passClass">{{ mock.passRate }}%</span>
             </div>
 
             <!-- 右：进度条 + 类型分组 -->
@@ -71,7 +56,7 @@
                     :style="{ width: Math.min(mock.avgAccuracy, 100) + '%', background: barFill }"
                   ></div>
                 </div>
-                <span class="mock-bar-pct">正确率 {{ mock.avgAccuracy }}%</span>
+                <span class="mock-bar-pct">{{ mock.avgAccuracy }}%</span>
               </div>
               <div class="type-list">
                 <span
@@ -80,7 +65,7 @@
                   class="type-tag"
                   :style="{ borderColor: typeColor(ts.type), color: typeColor(ts.type) }"
                 >
-                  {{ ts.type }} {{ ts.count }}场 均{{ ts.avgScore }}分
+                  {{ ts.type }} {{ ts.count }}场 均{{ ts.avgScore }}
                 </span>
               </div>
             </div>
@@ -214,15 +199,11 @@ const passClass = computed(() => {
 /* 左侧统计数字 */
 .mock-stats {
   display: flex;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.mock-stat-item {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 58px;
+  gap: 10px;
+  flex-shrink: 0;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .mock-val {
@@ -230,13 +211,6 @@ const passClass = computed(() => {
   font-weight: bold;
   color: #9C27B0;
   line-height: 1.2;
-}
-
-.mock-lbl {
-  font-size: 0.75rem;
-  color: #888;
-  margin-top: 4px;
-  text-align: center;
 }
 
 .c-green  { color: #4CAF50 !important; }

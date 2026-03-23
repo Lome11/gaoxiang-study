@@ -380,12 +380,12 @@ const totalQuestions = computed(() =>
 )
 
 // 平均正确率 = (章节答对数 + 模拟答对数) / 总题数
+// 模拟：score 直接是答对题数
 const avgAccuracy = computed(() => {
   const chapterTotal = studyData.records.reduce((s, r) => s + r.questionsDone, 0)
   const chapterCorrect = studyData.records.reduce((s, r) => s + r.correctAnswers, 0)
-  // 模拟：分数即正确率(0-100)，反推答对数 = score/100 * 75
   const mockTotal = studyData.mockExams.length * MOCK_TOTAL_QUESTIONS
-  const mockCorrect = studyData.mockExams.reduce((s, e) => s + (e.score / 100 * MOCK_TOTAL_QUESTIONS), 0)
+  const mockCorrect = studyData.mockExams.reduce((s, e) => s + e.score, 0)
   const total = chapterTotal + mockTotal
   if (total === 0) return '0%'
   return ((chapterCorrect + mockCorrect) / total * 100).toFixed(1) + '%'
@@ -520,13 +520,17 @@ const recentMockExams = computed(() =>
 )
 
 // 模拟考试进度汇总（给进度卡用）
+// score = 答对题数（0~75），不是百分制
 const mockProgress = computed(() => {
   const exams = studyData.mockExams
   const count = exams.length
   const totalQ = count * MOCK_TOTAL_QUESTIONS
-  const totalCorrect = exams.reduce((s, e) => s + (e.score / 100 * MOCK_TOTAL_QUESTIONS), 0)
-  const avgScore = count > 0 ? (exams.reduce((s, e) => s + e.score, 0) / count) : 0
+  // 正确率 = 答对总数 / 总题数
+  const totalCorrect = exams.reduce((s, e) => s + e.score, 0)
+  const avgCorrect = count > 0 ? totalCorrect / count : 0
   const avgAcc = totalQ > 0 ? (totalCorrect / totalQ * 100) : 0
+  // 及格线：答对 >= 45 题（75*60%）
+  const PASS_LINE = MOCK_TOTAL_QUESTIONS * 0.6
   // 按类型分组统计
   const byType = {}
   for (const e of exams) {
@@ -542,11 +546,11 @@ const mockProgress = computed(() => {
   return {
     count,
     totalQuestions: totalQ,
-    avgScore: avgScore.toFixed(1),
-    avgAccuracy: avgAcc.toFixed(1),
+    avgScore: avgCorrect.toFixed(1),       // 平均答对题数
+    avgAccuracy: avgAcc.toFixed(1),         // 平均正确率 %
     typeStats,
     passRate: count > 0
-      ? ((exams.filter(e => e.score >= 60).length / count) * 100).toFixed(0)
+      ? ((exams.filter(e => e.score >= PASS_LINE).length / count) * 100).toFixed(0)
       : '0',
   }
 })
