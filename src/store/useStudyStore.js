@@ -1,20 +1,24 @@
 import { reactive, computed, ref } from 'vue'
 
 // ========== 常量 ==========
-export const CHAPTERS_META = {
-  'project-management': '项目管理基础',
-  'scope': '范围管理',
-  'time': '时间管理',
-  'cost': '成本管理',
-  'quality': '质量管理',
-  'human-resource': '人力资源管理',
-  'communication': '沟通管理',
-  'risk': '风险管理',
-  'procurement': '采购管理',
-  'stakeholder': '干系人管理',
-  'integration': '整合管理',
-  'performance-domain': '项目绩效域',
-}
+// 默认内置章节（作为初始数据）
+export const DEFAULT_CHAPTERS = [
+  { key: 'project-management', name: '项目管理基础' },
+  { key: 'scope',              name: '范围管理' },
+  { key: 'time',               name: '时间管理' },
+  { key: 'cost',               name: '成本管理' },
+  { key: 'quality',            name: '质量管理' },
+  { key: 'human-resource',     name: '人力资源管理' },
+  { key: 'communication',      name: '沟通管理' },
+  { key: 'risk',               name: '风险管理' },
+  { key: 'procurement',        name: '采购管理' },
+  { key: 'stakeholder',        name: '干系人管理' },
+  { key: 'integration',        name: '整合管理' },
+  { key: 'performance-domain', name: '项目绩效域' },
+]
+
+// 兼容旧代码使用的 CHAPTERS_META（从 studyData 动态派生，下方导出）
+export let CHAPTERS_META = {}
 
 export const EXAM_DATE = new Date(2026, 4, 16) // 2026年5月16日
 
@@ -28,9 +32,10 @@ export const TYPE_COLORS = {
   '冲刺模拟': '#9C27B0',
 }
 
-function createEmptyChapters() {
+// 根据章节列表创建空章节数据对象
+function createEmptyChaptersFromList(chapterList) {
   const chapters = {}
-  for (const [key, name] of Object.entries(CHAPTERS_META)) {
+  for (const { key, name } of chapterList) {
     chapters[key] = { name, total: 0, correct: 0, time: 0 }
   }
   return chapters
@@ -40,7 +45,8 @@ function createEmptyData() {
   return {
     records: [],
     mockExams: [],
-    chapters: createEmptyChapters(),
+    chapters: createEmptyChaptersFromList(DEFAULT_CHAPTERS),
+    chapterList: DEFAULT_CHAPTERS.map(c => ({ ...c })), // 用户可编辑的章节列表
     lastUpdate: null,
   }
 }
@@ -121,18 +127,39 @@ function applyData(data) {
   studyData.mockExams = data.mockExams || []
   studyData.lastUpdate = data.lastUpdate || null
 
-  // 合并章节
-  const emptyChapters = createEmptyChapters()
-  studyData.chapters = { ...emptyChapters }
+  // 恢复用户章节列表（无则用默认）
+  studyData.chapterList = (data.chapterList && data.chapterList.length)
+    ? data.chapterList
+    : DEFAULT_CHAPTERS.map(c => ({ ...c }))
+
+  // 合并章节数据：保留用户章节列表对应的章节，同时保留历史数据（即使章节已删除的也不丢）
+  const newChapters = {}
+  // 先把旧 chapters 里的所有数据都搬过来（保留历史）
   if (data.chapters) {
-    for (const [key] of Object.entries(emptyChapters)) {
-      if (data.chapters[key]) {
-        studyData.chapters[key] = {
-          ...emptyChapters[key],
-          ...data.chapters[key],
-        }
-      }
+    for (const [key, val] of Object.entries(data.chapters)) {
+      newChapters[key] = { name: val.name || key, total: val.total || 0, correct: val.correct || 0, time: val.time || 0 }
     }
+  }
+  // 确保当前章节列表中每个章节都有记录
+  for (const { key, name } of studyData.chapterList) {
+    if (!newChapters[key]) {
+      newChapters[key] = { name, total: 0, correct: 0, time: 0 }
+    } else {
+      newChapters[key].name = name // 名字以列表为准
+    }
+  }
+  studyData.chapters = newChapters
+
+  // 同步更新 CHAPTERS_META（供兼容使用）
+  syncChaptersMeta()
+}
+
+// 同步 CHAPTERS_META 为当前章节列表
+function syncChaptersMeta() {
+  // 清空再重建
+  for (const key of Object.keys(CHAPTERS_META)) delete CHAPTERS_META[key]
+  for (const { key, name } of studyData.chapterList) {
+    CHAPTERS_META[key] = name
   }
 }
 
@@ -259,13 +286,42 @@ async function deleteMockRecord(index) {
   await saveAndSync()
 }
 
+// 添加自定义章节
+async function addChapter(name) {
+  name = name.trim()
+  if (!name) return { ok: false, msg: '章节名不能为空' }
+  // 检查重名
+  if (studyData.chapterList.some(c => c.name === name)) {
+    return { ok: false, msg: '已存在同名章节' }
+  }
+  // 生成唯一 key
+  const key = 'custom_' + Date.now()
+  studyData.chapterList.push({ key, name })
+  studyData.chapters[key] = { name, total: 0, correct: 0, time: 0 }
+  syncChaptersMeta()
+  await saveAndSync()
+  return { ok: true }
+}
+
+// 删除章节（只从列表移除，不删除历史数据）
+async function removeChapter(key) {
+  const idx = studyData.chapterList.findIndex(c => c.key === key)
+  if (idx === -1) return
+  studyData.chapterList.splice(idx, 1)
+  // 注意：不从 studyData.chapters 删除，历史数据保留
+  syncChaptersMeta()
+  await saveAndSync()
+}
+
 // 重置所有数据
 async function resetData() {
   const empty = createEmptyData()
   studyData.records = empty.records
   studyData.mockExams = empty.mockExams
   studyData.chapters = empty.chapters
+  studyData.chapterList = empty.chapterList
   studyData.lastUpdate = null
+  syncChaptersMeta()
   await saveAndSync()
 }
 
@@ -337,14 +393,20 @@ const weakestChapter = computed(() => {
   return name
 })
 
-// 章节列表（排序：正确率高 → 低，0题的放最后）
+// 章节列表（只含当前 chapterList 中的章节，排序：正确率高 → 低，0题的放最后）
 const sortedChapters = computed(() => {
-  return Object.entries(studyData.chapters)
-    .map(([key, ch]) => ({
-      key,
-      ...ch,
-      accuracy: ch.total > 0 ? Number((ch.correct / ch.total * 100).toFixed(1)) : null,
-    }))
+  return studyData.chapterList
+    .map(({ key, name }) => {
+      const ch = studyData.chapters[key] || { total: 0, correct: 0, time: 0 }
+      return {
+        key,
+        name,
+        total: ch.total,
+        correct: ch.correct,
+        time: ch.time,
+        accuracy: ch.total > 0 ? Number((ch.correct / ch.total * 100).toFixed(1)) : null,
+      }
+    })
     .sort((a, b) => {
       if (a.accuracy === null && b.accuracy === null) return 0
       if (a.accuracy === null) return 1
@@ -381,13 +443,16 @@ const dailyChartData = computed(() => {
   }
 })
 
-// 章节正确率图表数据
+// 章节正确率图表数据（只含当前 chapterList 中的章节）
 const accuracyChartData = computed(() => {
-  const items = Object.values(studyData.chapters).map(ch => ({
-    name: ch.name,
-    accuracy: ch.total > 0 ? Number((ch.correct / ch.total * 100).toFixed(1)) : 0,
-    total: ch.total,
-  }))
+  const items = studyData.chapterList.map(({ key, name }) => {
+    const ch = studyData.chapters[key] || { total: 0, correct: 0 }
+    return {
+      name,
+      accuracy: ch.total > 0 ? Number((ch.correct / ch.total * 100).toFixed(1)) : 0,
+      total: ch.total,
+    }
+  })
   items.sort((a, b) => a.accuracy - b.accuracy)
   return {
     labels: items.map(i => i.name),
@@ -466,6 +531,8 @@ export function getTodayString() {
 function init() {
   loadGistConfig()
   loadLocalData()
+  // 确保 CHAPTERS_META 与 chapterList 同步
+  syncChaptersMeta()
 }
 init()
 
@@ -505,6 +572,8 @@ export function useStudyStore() {
     deleteRecord,
     addMockRecord,
     deleteMockRecord,
+    addChapter,
+    removeChapter,
     resetData,
     importData,
   }

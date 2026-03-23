@@ -177,20 +177,24 @@ body {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   padding: 20px;
+  min-width: 1200px; /* 页面整体最小宽度 */
 }
 
 .page-bg {
   min-height: 100vh;
+  min-width: 1200px;
 }
 
 .container {
-  min-width: 1100px;
-  width: 100%;
+  min-width: 1200px;
+  width: 100%;        /* 宽时自动撑满 */
+  max-width: 100%;    /* 不限制最大宽 */
   margin: 0 auto;
   background: white;
   border-radius: 15px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .main-content {
@@ -223,11 +227,5 @@ body {
   border-top: 1px solid #eaeaea;
   font-size: 0.88rem;
   line-height: 1.8;
-}
-
-@media (max-width: 900px) {
-  .container { min-width: 0; }
-  .main-content { grid-template-columns: 1fr; }
-  body { padding: 10px; }
 }
 </style>
