@@ -1,8 +1,7 @@
 <template>
   <header class="app-header">
     <div class="header-main">
-      <h1>📚 软考高项备考进度跟踪系统</h1>
-      <p class="subtitle">2026年5月考试 · 每日学习进度可视化</p>
+      <p class="subtitle">每日学习进度可视化</p>
     </div>
 
     <div class="countdown-stats">

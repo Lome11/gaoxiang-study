@@ -343,29 +343,49 @@ const daysLeft = computed(() => {
 })
 
 const streakDays = computed(() => {
-  const records = studyData.records
-  if (records.length === 0) return 0
-  const uniqueDates = [...new Set(records.map(r => r.date))].sort().reverse()
+  // 合并章节学习日 + 模拟考试日
+  const allDates = [
+    ...studyData.records.map(r => r.date),
+    ...studyData.mockExams.map(e => e.date),
+  ]
+  if (allDates.length === 0) return 0
+  const uniqueDates = [...new Set(allDates)].sort().reverse()
   let streak = 0
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
 
   for (let i = 0; i < uniqueDates.length; i++) {
     const d = new Date(uniqueDates[i])
     d.setHours(0, 0, 0, 0)
-    const expected = new Date(today)
-    expected.setDate(expected.getDate() - i)
+    // 基准：从今天或昨天开始往前数（今天还没录入时从昨天起算）
+    const base = (i === 0 && d.getTime() === today.getTime()) ? today : yesterday
+    const expected = new Date(base)
+    expected.setDate(expected.getDate() - (i === 0 && d.getTime() === today.getTime() ? 0 : i))
     expected.setHours(0, 0, 0, 0)
-    if (i === 0 && d.getTime() !== today.getTime()) break
-    if (d.getTime() === expected.getTime()) streak++
-    else break
+    if (i === 0) {
+      // 第一条必须是今天或昨天
+      if (d.getTime() !== today.getTime() && d.getTime() !== yesterday.getTime()) break
+      streak = 1
+    } else {
+      const prev = new Date(uniqueDates[i - 1])
+      prev.setHours(0, 0, 0, 0)
+      const diff = Math.round((prev - d) / 86400000)
+      if (diff === 1) streak++
+      else break
+    }
   }
   return streak
 })
 
-const totalHours = computed(() =>
-  Object.values(studyData.chapters).reduce((s, c) => s + c.time, 0)
-)
+const MOCK_TIME_PER_EXAM = 0.75 // 每次模拟考试45分钟 = 0.75小时
+
+const totalHours = computed(() => {
+  const chapterTime = Object.values(studyData.chapters).reduce((s, c) => s + c.time, 0)
+  const mockTime = studyData.mockExams.length * MOCK_TIME_PER_EXAM
+  return chapterTime + mockTime
+})
 
 const MOCK_TOTAL_QUESTIONS = 75 // 每次模拟考试固定75道题
 

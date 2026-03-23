@@ -188,8 +188,8 @@ body {
 
 .container {
   min-width: 1200px;
-  width: 100%;        /* 宽时自动撑满 */
-  max-width: 100%;    /* 不限制最大宽 */
+  width: 100%;
+  max-width: 1920px;
   margin: 0 auto;
   background: white;
   border-radius: 15px;
