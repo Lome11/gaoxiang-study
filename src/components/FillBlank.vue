@@ -249,9 +249,10 @@
           </div>
         </div>
 
-        <!-- 本次错题 -->
-        <div v-if="wrongInSession.length > 0" class="res-wrong-card">
+        <!-- 本次错题（第二行左） -->
+        <div class="res-wrong-card">
           <div class="card-title">本次错题（{{ wrongInSession.length }} 题）</div>
+          <div v-if="wrongInSession.length === 0" class="rw-empty">🎉 本次全部答对！</div>
           <div v-for="(item, i) in wrongInSession" :key="i" class="rw-item">
             <div class="rw-meta">{{ item.origIndex + 1 }}. {{ categoryName(item.category) }}</div>
             <div class="rw-q">{{ item.question }}</div>
@@ -261,7 +262,7 @@
           </div>
         </div>
 
-        <!-- 全题回顾 -->
+        <!-- 全题回顾（第二行右） -->
         <div class="res-all-card">
           <div class="card-title">全部题目回顾</div>
           <div v-for="(q, i) in questions" :key="i" class="ra-item" :class="isCorrect(i) ? 'ra-ok' : 'ra-err'">
@@ -316,7 +317,7 @@
         <!-- 右：每日正确率折线图 -->
         <div class="hs-trend-panel">
           <div class="hsp-title">每日正确率趋势</div>
-          <div v-if="dailyTrend.length >= 2" class="trend-wrap">
+          <div v-if="dailyTrend.length >= 1" class="trend-wrap">
             <svg class="trend-svg" viewBox="0 0 300 90" preserveAspectRatio="none">
               <!-- Y轴参考线 -->
               <line x1="0" y1="18" x2="300" y2="18" stroke="#f0f0f0" stroke-width="1"/>
@@ -363,7 +364,7 @@
           </div>
           <div v-else class="hsp-empty">
             <div class="hsp-empty-icon">📈</div>
-            <div>再完成一次练习即可<br>看到趋势图</div>
+            <div>完成第一次练习后<br>即可显示趋势</div>
           </div>
         </div>
       </div>
@@ -591,21 +592,15 @@ const categoryStats = computed(() => {
   }))
 })
 
-// ── 历史分析：每日趋势 ──
+// ── 历史分析：每次练习趋势（按次，不按天聚合，最近10次）──
 const dailyTrend = computed(() => {
-  const map = {}
-  sessionHistory.value.forEach(rec => {
-    if (!map[rec.date]) map[rec.date] = { correct: 0, total: 0 }
-    map[rec.date].correct += rec.correct
-    map[rec.date].total   += rec.total
-  })
-  return Object.entries(map)
-    .sort(([a], [b]) => a.localeCompare(b))
+  return [...sessionHistory.value]
+    .reverse()          // 最早的在前
     .slice(-10)
-    .map(([date, v]) => ({
-      date: date.slice(5),
-      correct: v.correct, total: v.total,
-      acc: v.total > 0 ? Math.round(v.correct / v.total * 100) : 0,
+    .map(rec => ({
+      date: (rec.date || '').slice(5) + (rec.time ? ' ' + rec.time.slice(0,5) : ''),
+      correct: rec.correct, total: rec.total,
+      acc: rec.total > 0 ? Math.round(rec.correct / rec.total * 100) : 0,
     }))
 })
 
@@ -614,10 +609,11 @@ const dailyTrendLabels = computed(() => dailyTrend.value.map(d => d.date))
 // SVG 坐标（viewBox 0 0 300 90，底部留10px给x轴）
 const trendPoints = computed(() => {
   const data = dailyTrend.value
-  if (data.length < 2) return []
+  if (data.length < 1) return []
   const n = data.length
+  // 只有1个点时居中显示
   return data.map((d, i) => ({
-    x: (i / (n - 1)) * 270 + 20,
+    x: n === 1 ? 150 : (i / (n - 1)) * 270 + 20,
     y: 82 - (d.acc / 100) * 72,
     acc: d.acc,
   }))
@@ -1178,12 +1174,16 @@ watch(currentIndex, () => {
 ════════════════════════════════════════ */
 .fb-result-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
 }
 
+/* 第一行：得分卡(col1) | 各领域(col2~3 合并) */
 .res-score-card {
+  grid-column: 1;
+  grid-row: 1;
   background: white;
   border-radius: 12px;
   padding: 20px 16px;
@@ -1192,7 +1192,20 @@ watch(currentIndex, () => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  grid-row: span 2;
+}
+.res-cat-card {
+  grid-column: 2 / 4;
+  grid-row: 1;
+}
+
+/* 第二行：错题(col1~2) | 全题回顾(col2~3) 各半 */
+.res-wrong-card {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+.res-all-card {
+  grid-column: 3 / 4;
+  grid-row: 2;
 }
 .res-icon   { font-size: 2.5rem; }
 .res-score  { display: flex; align-items: baseline; gap: 3px; }
@@ -1224,8 +1237,21 @@ watch(currentIndex, () => {
   border-radius: 12px;
   padding: 14px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-  max-height: 320px;
+  max-height: 380px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.rw-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: #059669;
+  font-weight: 600;
+  padding: 20px 0;
 }
 
 .res-cat-row { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
