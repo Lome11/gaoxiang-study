@@ -19,6 +19,10 @@
         <span>⏱️ 总投入</span>
         <span class="countdown-value">{{ formatStudyTime(totalHours) }}</span>
       </div>
+      <!-- 填空练习入口 -->
+      <div class="countdown-item fill-blank-item" @click="$emit('openFillBlank')">
+        <span>✏️ 填空练习</span>
+      </div>
       <!-- 同步状态 -->
       <div class="countdown-item sync-item" @click="$emit('openSync')">
         <span class="sync-dot" :class="syncStatus"></span>
@@ -39,7 +43,7 @@ const props = defineProps({
   syncStatus: String,
 })
 
-defineEmits(['openSync'])
+defineEmits(['openSync', 'openFillBlank'])
 
 const syncStatusText = computed(() => {
   switch (props.syncStatus) {
@@ -90,6 +94,19 @@ h1 {
   background: rgba(255, 255, 255, 0.2);
   padding: 2px 10px;
   border-radius: 4px;
+}
+
+.fill-blank-item {
+  cursor: pointer;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+  transition: background 0.2s;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.fill-blank-item:hover {
+  background: rgba(255,255,255,0.28);
 }
 
 .sync-item {

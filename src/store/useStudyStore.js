@@ -15,6 +15,7 @@ export const DEFAULT_CHAPTERS = [
   { key: 'stakeholder',        name: '干系人管理' },
   { key: 'integration',        name: '整合管理' },
   { key: 'performance-domain', name: '项目绩效域' },
+  { key: 'fill-blank',         name: '填空题练习' },
 ]
 
 // 兼容旧代码使用的 CHAPTERS_META（从 studyData 动态派生，下方导出）
@@ -148,6 +149,11 @@ function applyData(data) {
     } else {
       newChapters[key].name = name // 名字以列表为准
     }
+  }
+  // 兼容老数据：确保 fill-blank 章节存在于 chapterList 中
+  if (!studyData.chapterList.some(c => c.key === 'fill-blank')) {
+    studyData.chapterList.push({ key: 'fill-blank', name: '填空题练习' })
+    newChapters['fill-blank'] = { name: '填空题练习', total: 0, correct: 0, time: 0 }
   }
   studyData.chapters = newChapters
 

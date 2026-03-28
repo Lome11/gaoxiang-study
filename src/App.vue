@@ -1,6 +1,11 @@
 <template>
   <div class="page-bg">
-    <div class="container">
+
+    <!-- ══ 填空练习独立页面 ══ -->
+    <FillBlank v-if="showFillBlank" @back="showFillBlank = false" />
+
+    <!-- ══ 主页面 ══ -->
+    <div v-else class="container">
       <!-- 顶部 Header -->
       <AppHeader
         :daysLeft="daysLeft"
@@ -8,6 +13,7 @@
         :totalHours="totalHours"
         :syncStatus="syncStatus"
         @open-sync="showSyncModal = true"
+        @open-fill-blank="showFillBlank = true"
       />
 
       <main class="main-content">
@@ -64,13 +70,14 @@
         <p>数据已加密存储于 GitHub Gist · 最后更新：{{ studyData.lastUpdate || '从未' }}</p>
         <p>提示：点击顶部「☁️ 云同步」按钮配置 GitHub Token，即可跨设备同步数据</p>
       </footer>
+
+      <!-- 云同步弹窗 -->
+      <SyncModal v-model:visible="showSyncModal" />
+
+      <!-- Toast 通知 -->
+      <ToastNotify />
     </div>
 
-    <!-- 云同步弹窗 -->
-    <SyncModal v-model:visible="showSyncModal" />
-
-    <!-- Toast 通知 -->
-    <ToastNotify />
   </div>
 </template>
 
@@ -81,6 +88,7 @@ import { useToast } from './composables/useToast.js'
 
 import AppHeader      from './components/AppHeader.vue'
 import SyncModal      from './components/SyncModal.vue'
+import FillBlank      from './components/FillBlank.vue'
 import SummaryCard    from './components/SummaryCard.vue'
 import ChapterProgress from './components/ChapterProgress.vue'
 import RecordForm     from './components/RecordForm.vue'
@@ -123,6 +131,7 @@ const {
 } = store
 
 const showSyncModal = ref(false)
+const showFillBlank = ref(false)
 
 async function handleAddRecord(payload) {
   await addRecord(payload)
