@@ -464,6 +464,7 @@ const SESSION_KEY = 'gaoxiang_fillblank_sessions'
 
 // ── 分类名映射 ──
 const CATEGORY_NAMES = {
+  // 原有 10大管理分类
   integration:          '整合管理',
   scope:                '范围管理',
   time:                 '时间管理',
@@ -476,6 +477,15 @@ const CATEGORY_NAMES = {
   stakeholder:          '干系人管理',
   'project-management': '项目管理基础',
   'performance-domain': '项目绩效域',
+  // 新题库章节分类
+  ch1_info:             '第1章 信息化发展',
+  ch2_tech:             '第2章 信息技术发展',
+  ch3_governance:       '第3章 信息系统治理',
+  ch4_management:       '第4章 信息系统管理',
+  ch5_engineering:      '第5章 信息系统工程',
+  ch6_pm_intro:         '第6章 项目管理概论',
+  ch7_initiation:       '第7章 立项管理',
+  ch8_integration:      '第8章 项目整合管理',
 }
 function categoryName(key) { return CATEGORY_NAMES[key] || key }
 
@@ -543,10 +553,12 @@ function cardBtnClass(i) {
   }
 }
 
-// ── 题干分段 ──
+// ── 题干分段（兼容 ___ 和 （） 两种填空标记）──
 const questionParts = computed(() => {
   const text = questions.value[currentIndex.value]?.question || ''
-  const splits = text.split('___')
+  // 统一将 （） 替换为 ___，再做分段
+  const normalized = text.replace(/（\s*）/g, '___').replace(/\(\s*\)/g, '___')
+  const splits = normalized.split('___')
   const parts = []
   splits.forEach((seg, i) => {
     parts.push({ type: 'text', content: seg })
