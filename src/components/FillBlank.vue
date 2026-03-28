@@ -186,7 +186,7 @@
               type="text"
               class="qp-input"
               placeholder="输入答案，回车提交..."
-              @keyup.enter="submitCurrent"
+              @keyup.enter="onInputEnter"
             />
             <button class="qp-submit" @click="submitCurrent">提交</button>
           </div>
@@ -491,6 +491,7 @@ const userAnswers    = ref([])
 const submittedFlags = ref([])
 const answerInputRef = ref(null)
 const nextFocusRef  = ref(null)
+let inputEnterLocked = false   // 防止"按键穿透"：跳题后短暂屏蔽 input 的 enter
 
 const wrongList      = ref(loadWrongList())
 const historyStats   = ref(loadHistoryStats())
@@ -674,6 +675,11 @@ function startWrongReview() {
   initQuiz(qs.sort(() => Math.random() - 0.5).slice(0, finalCount.value))
 }
 
+function onInputEnter() {
+  if (inputEnterLocked) return
+  submitCurrent()
+}
+
 function submitCurrent() {
   submittedFlags.value[currentIndex.value] = true
   submittedFlags.value = [...submittedFlags.value]
@@ -683,7 +689,10 @@ function submitCurrent() {
 
 function handleEnterAfterSubmit() {
   if (currentIndex.value < questions.value.length - 1) {
+    // 锁住 input enter，防止跳题后 keyup 穿透触发提交
+    inputEnterLocked = true
     goNextQuestion()
+    setTimeout(() => { inputEnterLocked = false }, 300)
   } else {
     finishQuiz()
   }
