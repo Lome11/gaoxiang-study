@@ -1,7 +1,7 @@
 <template>
   <header class="app-header">
     <div class="header-main">
-      <p class="subtitle">每日学习进度可视化</p>
+      <p class="subtitle">高项 · 每日学习进度可视化 <span class="ver-tag">v1.4.0</span></p>
     </div>
 
     <div class="countdown-stats">
@@ -73,6 +73,21 @@ h1 {
   opacity: 0.9;
   margin-bottom: 18px;
 }
+
+.ver-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+
+
 
 .countdown-stats {
   display: flex;
