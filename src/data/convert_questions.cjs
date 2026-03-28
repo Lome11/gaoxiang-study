@@ -35,7 +35,12 @@ const CHAPTER_MAP = {
   '第15章': 'ch15_risk',
   '第16章': 'ch16_procurement',
   '第17章': 'ch17_stakeholder',
-  '第18章': 'ch18_advanced',
+  '第18章': 'ch18_performance',
+  '第19章': 'ch19_config',
+  '第20章': 'ch20_advanced',
+  '第21章': 'ch21_science',
+  '第22章': 'ch22_governance',
+  '第23章': 'ch23_management',
 };
 
 function getCategory(chapterName) {

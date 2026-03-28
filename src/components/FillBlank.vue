@@ -495,7 +495,13 @@ const CATEGORY_NAMES = {
   ch15_risk:            '第15章 项目风险管理',
   ch16_procurement:     '第16章 项目采购管理',
   ch17_stakeholder:     '第17章 项目干系人管理',
+  ch18_performance:     '第18章 项目绩效域',
   ch18_advanced:        '第18章 综合强化题库',
+  ch19_config:          '第19章 配置与变更管理',
+  ch20_advanced:        '第20章 高级项目管理',
+  ch21_science:         '第21章 项目管理科学基础',
+  ch22_governance:      '第22章 组织通用治理',
+  ch23_management:      '第23章 组织通用管理',
   // 兼容旧 key（ch1_info 格式）
   ch1_info:             '第1章 信息化发展',
   ch2_tech:             '第2章 信息技术发展',
