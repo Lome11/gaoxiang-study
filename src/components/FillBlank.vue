@@ -464,6 +464,7 @@ const SESSION_KEY = 'gaoxiang_fillblank_sessions'
 
 // ── 分类名映射 ──
 const CATEGORY_NAMES = {
+  // 原有 10大管理分类（兼容旧数据）
   integration:          '整合管理',
   scope:                '范围管理',
   time:                 '时间管理',
@@ -476,6 +477,40 @@ const CATEGORY_NAMES = {
   stakeholder:          '干系人管理',
   'project-management': '项目管理基础',
   'performance-domain': '项目绩效域',
+  // 新题库章节分类（第1~18章）
+  ch01_info:            '第1章 信息化发展',
+  ch02_tech:            '第2章 信息技术发展',
+  ch03_governance:      '第3章 信息系统治理',
+  ch04_management:      '第4章 信息系统管理',
+  ch05_engineering:     '第5章 信息系统工程',
+  ch06_pm_intro:        '第6章 项目管理概论',
+  ch07_initiation:      '第7章 立项管理',
+  ch08_integration:     '第8章 项目整合管理',
+  ch09_scope:           '第9章 项目范围管理',
+  ch10_schedule:        '第10章 项目进度管理',
+  ch11_cost:            '第11章 项目成本管理',
+  ch12_quality:         '第12章 项目质量管理',
+  ch13_resource:        '第13章 项目资源管理',
+  ch14_communication:   '第14章 项目沟通管理',
+  ch15_risk:            '第15章 项目风险管理',
+  ch16_procurement:     '第16章 项目采购管理',
+  ch17_stakeholder:     '第17章 项目干系人管理',
+  ch18_performance:     '第18章 项目绩效域',
+  ch18_advanced:        '第18章 综合强化题库',
+  ch19_config:          '第19章 配置与变更管理',
+  ch20_advanced:        '第20章 高级项目管理',
+  ch21_science:         '第21章 项目管理科学基础',
+  ch22_governance:      '第22章 组织通用治理',
+  ch23_management:      '第23章 组织通用管理',
+  // 兼容旧 key（ch1_info 格式）
+  ch1_info:             '第1章 信息化发展',
+  ch2_tech:             '第2章 信息技术发展',
+  ch3_governance:       '第3章 信息系统治理',
+  ch4_management:       '第4章 信息系统管理',
+  ch5_engineering:      '第5章 信息系统工程',
+  ch6_pm_intro:         '第6章 项目管理概论',
+  ch7_initiation:       '第7章 立项管理',
+  ch8_integration:      '第8章 项目整合管理',
 }
 function categoryName(key) { return CATEGORY_NAMES[key] || key }
 
@@ -543,10 +578,12 @@ function cardBtnClass(i) {
   }
 }
 
-// ── 题干分段 ──
+// ── 题干分段（兼容 ___ 和 （） 两种填空标记）──
 const questionParts = computed(() => {
   const text = questions.value[currentIndex.value]?.question || ''
-  const splits = text.split('___')
+  // 统一将 （） 替换为 ___，再做分段
+  const normalized = text.replace(/（\s*）/g, '___').replace(/\(\s*\)/g, '___')
+  const splits = normalized.split('___')
   const parts = []
   splits.forEach((seg, i) => {
     parts.push({ type: 'text', content: seg })
