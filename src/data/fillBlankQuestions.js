@@ -37,7 +37,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '项目管理计划的制定需要整合所有子计划，其中与范围基准、进度基准、成本基准合称为___。',
     answer: '绩效测量基准',
     analysis: '绩效测量基准（PMB）= 范围基准 + 进度基准 + 成本基准，用于衡量项目执行绩效。',
-    keywords: ['绩效测量基准', 'PMB'],
+    keywords: ['绩效测量基准', 'PMB', '绩效基准'],
   },
   {
     id: 'int-004',
@@ -77,7 +77,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '变更控制委员会（CCB）是专门负责___的正式委员会，项目经理通常是成员之一。',
     answer: '审查和批准变更请求',
     analysis: 'CCB（Change Control Board）对变更请求进行评审，有批准、拒绝或推迟处理的权力。',
-    keywords: ['CCB', '变更控制委员会', '审查', '批准'],
+    keywords: ['CCB', '变更控制委员会', '审查', '批准', '审批', '变更请求'],
   },
   {
     id: 'int-009',
@@ -277,7 +277,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '挣值分析中，SPI < 1 表示项目___，SPI = EV / PV。',
     answer: '进度落后（进度绩效不佳）',
     analysis: 'SPI（进度绩效指数）= EV/PV。SPI<1说明实际完成进度落后于计划；SPI>1说明进度超前。',
-    keywords: ['进度落后', 'SPI'],
+    keywords: ['进度落后', 'SPI', '进度滞后', '落后'],
   },
   {
     id: 'tim-006',
@@ -409,7 +409,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '生命周期成本分析（LCC）不仅考虑项目开发成本，还包括运维、处置等___阶段的成本。',
     answer: '使用和处置（全生命周期）',
     analysis: '生命周期成本=获取成本+运营成本+维护成本+处置成本，帮助决策者做出更全面的成本决策。',
-    keywords: ['生命周期', '全生命周期', '运营'],
+    keywords: ['生命周期', '全生命周期', '运营', '运维', '使用', '处置'],
   },
   {
     id: 'cos-010',
@@ -869,7 +869,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '敏捷方法中，Scrum 的三个核心角色是产品负责人（PO）、Scrum Master 和___。',
     answer: '开发团队',
     analysis: 'Scrum三角色：PO（优先级排序）、Scrum Master（流程教练）、开发团队（自组织交付）。',
-    keywords: ['开发团队'],
+    keywords: ['开发团队', '开发人员'],
   },
   {
     id: 'bas-008',
@@ -917,7 +917,7 @@ export const FILL_BLANK_QUESTIONS = [
     question: '净现值（NPV）> 0 表示项目___，是决策是否投资该项目的重要依据。',
     answer: '具有投资价值（可以投资）',
     analysis: 'NPV>0说明项目产生的收益（折现值）超过投资成本，项目可以接受；NPV<0则不可投资。',
-    keywords: ['投资价值', '可以投资'],
+    keywords: ['投资价值', '可以投资', '值得投资', '有价值'],
   },
   {
     id: 'bas-014',
