@@ -386,6 +386,10 @@
             <div class="hd-back-row">
               <button class="hd-back" @click="viewingRecord = null">← 返回列表</button>
               <span class="hd-meta">{{ viewingRecord.date }} {{ viewingRecord.time }} · {{ viewingRecord.total }}题 · 正确率 <strong :class="viewingRecord.accuracy >= 80 ? 'c-good' : viewingRecord.accuracy >= 60 ? 'c-mid' : 'c-bad'">{{ viewingRecord.accuracy }}%</strong></span>
+              <button
+                class="hd-del-btn"
+                @click="deleteViewingRecord"
+              >🗑 删除此记录</button>
             </div>
             <div class="hd-items">
               <div
@@ -437,6 +441,11 @@
                   :class="rec.accuracy >= 80 ? 'badge-great' : rec.accuracy >= 60 ? 'badge-good' : 'badge-poor'"
                 >{{ rec.accuracy >= 80 ? '优秀' : rec.accuracy >= 60 ? '良好' : '加油' }}</span>
                 <span class="hsr-arrow">›</span>
+                <button
+                  class="hsr-del"
+                  title="删除此记录"
+                  @click.stop="deleteSession(i)"
+                >🗑</button>
               </div>
             </div>
           </template>
@@ -799,6 +808,52 @@ async function finishQuiz() {
   } catch (e) { console.warn('同步失败', e) }
 
   stage.value = 'result'
+}
+
+// ── 删除历史记录 + 重算统计 ──
+function rebuildStatsFromSessions() {
+  const sessions = sessionHistory.value
+  if (sessions.length === 0) {
+    historyStats.value = { sessions: 0, total: 0, correct: 0, accuracy: 0, bestAccuracy: 0, wrongCount: wrongList.value.length }
+    saveHistoryStats()
+    return
+  }
+  let total = 0, correct = 0, best = 0
+  sessions.forEach(rec => {
+    total   += rec.total
+    correct += rec.correct
+    best = Math.max(best, rec.accuracy)
+  })
+  historyStats.value = {
+    sessions:     sessions.length,
+    total,
+    correct,
+    accuracy:     total > 0 ? Math.round(correct / total * 100) : 0,
+    bestAccuracy: best,
+    wrongCount:   wrongList.value.length,
+  }
+  saveHistoryStats()
+}
+
+function deleteSession(i) {
+  const rec = sessionHistory.value[i]
+  if (!window.confirm(`确定删除第 ${sessionHistory.value.length - i} 条记录（${rec.date} ${rec.time} · ${rec.total}题 · ${rec.accuracy}%）？`)) return
+  sessionHistory.value.splice(i, 1)
+  saveSessionHistory()
+  rebuildStatsFromSessions()
+  showToast('✅ 记录已删除，统计已更新', 'success')
+}
+
+function deleteViewingRecord() {
+  const rec = viewingRecord.value
+  if (!rec) return
+  if (!window.confirm(`确定删除这条记录（${rec.date} ${rec.time} · ${rec.total}题 · ${rec.accuracy}%）？`)) return
+  const idx = sessionHistory.value.indexOf(rec)
+  if (idx !== -1) sessionHistory.value.splice(idx, 1)
+  saveSessionHistory()
+  rebuildStatsFromSessions()
+  viewingRecord.value = null
+  showToast('✅ 记录已删除，统计已更新', 'success')
 }
 
 function restartPractice() {
@@ -1443,6 +1498,23 @@ watch(currentIndex, () => {
 .badge-good  { background: #fef3c7; color: #92400e; }
 .badge-poor  { background: #fee2e2; color: #991b1b; }
 .hsr-arrow { color: #ddd; font-size: 1.1rem; }
+.hsr-del {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #ccc;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+.hsr-del:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
 
 /* 历史详情 */
 .hd-view { padding: 14px 16px; }
@@ -1458,6 +1530,19 @@ watch(currentIndex, () => {
 }
 .hd-back:hover { border-color: #667eea; color: #667eea; }
 .hd-meta { font-size: 0.78rem; color: #aaa; }
+.hd-del-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #fff5f5;
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hd-del-btn:hover { background: #fee2e2; border-color: #ef4444; }
 
 .hd-items { display: flex; flex-direction: column; gap: 10px; }
 .hd-item { padding: 10px 12px; border-radius: 8px; border-left: 3px solid transparent; }
