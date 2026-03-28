@@ -203,6 +203,16 @@
             <div class="qa-judge" :class="isCorrect(currentIndex) ? 'j-ok' : 'j-err'">
               {{ isCorrect(currentIndex) ? '✓ 回答正确' : '✗ 回答有误，记住正确答案' }}
             </div>
+            <!-- 回车跳下一题的隐藏焦点盒 -->
+            <div
+              ref="nextFocusRef"
+              tabindex="0"
+              class="qp-enter-hint"
+              @keydown.enter="handleEnterAfterSubmit"
+            >
+              <span v-if="currentIndex < questions.length - 1">⏎ 按回车继续下一题</span>
+              <span v-else>⏎ 按回车查看结果</span>
+            </div>
           </div>
         </div>
       </div>
@@ -480,6 +490,7 @@ const currentIndex   = ref(0)
 const userAnswers    = ref([])
 const submittedFlags = ref([])
 const answerInputRef = ref(null)
+const nextFocusRef  = ref(null)
 
 const wrongList      = ref(loadWrongList())
 const historyStats   = ref(loadHistoryStats())
@@ -666,6 +677,16 @@ function startWrongReview() {
 function submitCurrent() {
   submittedFlags.value[currentIndex.value] = true
   submittedFlags.value = [...submittedFlags.value]
+  // 提交后焦点移到「回车→下一题」提示框
+  nextTick(() => nextFocusRef.value?.focus())
+}
+
+function handleEnterAfterSubmit() {
+  if (currentIndex.value < questions.value.length - 1) {
+    goNextQuestion()
+  } else {
+    finishQuiz()
+  }
 }
 
 function goPrev() {
@@ -1118,6 +1139,30 @@ watch(currentIndex, () => {
 .qa-judge { align-self: flex-start; padding: 3px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
 .j-ok  { background: #d1fae5; color: #065f46; }
 .j-err { background: #fee2e2; color: #991b1b; }
+
+/* 回车提示 */
+.qp-enter-hint {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #6366f1;
+  background: #eef2ff;
+  border: 1.5px dashed #a5b4fc;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.qp-enter-hint:focus {
+  background: #e0e7ff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.qp-enter-hint:hover {
+  background: #e0e7ff;
+}
 
 /* ════════════════════════════════════════
    结果区
