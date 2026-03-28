@@ -7,16 +7,35 @@ const path = require('path');
 
 const json = JSON.parse(fs.readFileSync(path.join(__dirname, 'questionList.json'), 'utf-8'));
 
-// 章节名 → category key 映射
+// 章节名 → category key 映射（支持 第N章 和 第0N章 两种格式）
 const CHAPTER_MAP = {
-  '第1章': 'ch1_info',
-  '第2章': 'ch2_tech',
-  '第3章': 'ch3_governance',
-  '第4章': 'ch4_management',
-  '第5章': 'ch5_engineering',
-  '第6章': 'ch6_pm_intro',
-  '第7章': 'ch7_initiation',
-  '第8章': 'ch8_integration',
+  '第1章': 'ch01_info',
+  '第01章': 'ch01_info',
+  '第2章': 'ch02_tech',
+  '第02章': 'ch02_tech',
+  '第3章': 'ch03_governance',
+  '第03章': 'ch03_governance',
+  '第4章': 'ch04_management',
+  '第04章': 'ch04_management',
+  '第5章': 'ch05_engineering',
+  '第05章': 'ch05_engineering',
+  '第6章': 'ch06_pm_intro',
+  '第06章': 'ch06_pm_intro',
+  '第7章': 'ch07_initiation',
+  '第07章': 'ch07_initiation',
+  '第8章': 'ch08_integration',
+  '第08章': 'ch08_integration',
+  '第9章': 'ch09_scope',
+  '第09章': 'ch09_scope',
+  '第10章': 'ch10_schedule',
+  '第11章': 'ch11_cost',
+  '第12章': 'ch12_quality',
+  '第13章': 'ch13_resource',
+  '第14章': 'ch14_communication',
+  '第15章': 'ch15_risk',
+  '第16章': 'ch16_procurement',
+  '第17章': 'ch17_stakeholder',
+  '第18章': 'ch18_advanced',
 };
 
 function getCategory(chapterName) {
@@ -88,23 +107,46 @@ for (const chapter of json.chapters) {
   
   chapter.questions.forEach((q, idx) => {
     const id = `${idPrefix}-${String(idx + 1).padStart(3, '0')}`;
-    const keywords = extractKeywords(q.answer);
-    const questionEscaped = q.question.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-    const answerEscaped = q.answer.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-    const analysisEscaped = (q.analysis || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+    const keywords = extractKeywords(q.answer || '');
+    // 使用 JSON.stringify 确保所有特殊字符（单引号/双引号/反斜杠等）都被正确转义
+    const questionJson = JSON.stringify(q.question || '');
+    const answerJson   = JSON.stringify(q.answer || '');
+    const analysisJson = JSON.stringify(q.analysis || '');
     
     lines.push(`  {`);
-    lines.push(`    id: '${id}',`);
-    lines.push(`    category: '${category}',`);
-    lines.push(`    question: '${questionEscaped.replace(/'/g, "\\'")}',`);
-    lines.push(`    answer: '${answerEscaped.replace(/'/g, "\\'")}',`);
-    lines.push(`    analysis: '${analysisEscaped.replace(/'/g, "\\'")}',`);
+    lines.push(`    id: ${JSON.stringify(id)},`);
+    lines.push(`    category: ${JSON.stringify(category)},`);
+    lines.push(`    question: ${questionJson},`);
+    lines.push(`    answer: ${answerJson},`);
+    lines.push(`    analysis: ${analysisJson},`);
     lines.push(`    keywords: ${JSON.stringify(keywords)},`);
     lines.push(`  },`);
   });
 }
 
 lines.push(`];`);
+lines.push(``);
+lines.push(`/**`);
+lines.push(` * 按 category 分组`);
+lines.push(` */`);
+lines.push(`export const QUESTIONS_BY_CATEGORY = FILL_BLANK_QUESTIONS.reduce((acc, q) => {`);
+lines.push(`  if (!acc[q.category]) acc[q.category] = []`);
+lines.push(`  acc[q.category].push(q)`);
+lines.push(`  return acc`);
+lines.push(`}, {})`);
+lines.push(``);
+lines.push(`/**`);
+lines.push(` * 随机出题函数`);
+lines.push(` * @param {number} count - 题目数量`);
+lines.push(` * @returns {Array} 随机题目数组`);
+lines.push(` */`);
+lines.push(`export function generateQuestions(count) {`);
+lines.push(`  function pickRandom(pool, n) {`);
+lines.push(`    const shuffled = [...pool].sort(() => Math.random() - 0.5)`);
+lines.push(`    return shuffled.slice(0, Math.min(n, shuffled.length))`);
+lines.push(`  }`);
+lines.push(`  return pickRandom(FILL_BLANK_QUESTIONS, count)`);
+lines.push(`}`);
 
 fs.writeFileSync(path.join(__dirname, 'fillBlankQuestions.js'), lines.join('\n'), 'utf-8');
-console.log('转换完成！');
+console.log(`转换完成！共 ${json.chapters.reduce((s, c) => s + c.questions.length, 0)} 题，${json.chapters.length} 章`);
