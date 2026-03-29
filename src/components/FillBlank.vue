@@ -67,6 +67,13 @@
             </div>
           </div>
 
+          <!-- 已标记题目 -->
+          <div v-if="skippedList.length > 0" class="cfg-row">
+            <div class="skip-entry" @click="showSkippedPanel = true">
+              ⚠️ 已标记题目（{{ skippedList.length }} 题）—— 点击查看 / 导出
+            </div>
+          </div>
+
           <div class="cfg-spacer"></div>
 
           <button class="start-btn" @click="startPractice">
@@ -95,6 +102,10 @@
             <div class="sn-item warn">
               <span class="sn-val">{{ wrongList.length }}</span>
               <span class="sn-lbl">错题本</span>
+            </div>
+            <div v-if="skippedList.length > 0" class="sn-item skip">
+              <span class="sn-val">{{ skippedList.length }}</span>
+              <span class="sn-lbl">已标记</span>
             </div>
           </div>
 
@@ -461,6 +472,38 @@
       </div>
 
     </div><!-- /fb-body -->
+
+    <!-- ================================================================
+         已标记题目面板（遮罩弹窗）
+      ================================================================ -->
+    <div v-if="showSkippedPanel" class="skip-panel-overlay" @click.self="showSkippedPanel = false">
+      <div class="skip-panel">
+        <div class="sp-header">
+          <span class="sp-title">⚠️ 已标记题目（{{ skippedList.length }} 题）</span>
+          <div class="sp-actions">
+            <button class="sp-btn-export" @click="exportSkippedJson">📥 导出 JSON</button>
+            <button class="sp-btn-clear" @click="clearSkippedList">🗑 清空标记</button>
+            <button class="sp-btn-close" @click="showSkippedPanel = false">✕ 关闭</button>
+          </div>
+        </div>
+        <div class="sp-desc">以下题目在练习中被标记为「无法作答/上下文不全」，不计入统计。可导出 JSON 后对原始题库进行处理。</div>
+        <div class="sp-list">
+          <div v-for="(item, i) in skippedList" :key="item.id" class="sp-item">
+            <div class="sp-item-header">
+              <span class="sp-num">{{ i + 1 }}</span>
+              <span class="sp-cat">{{ categoryName(item.category) }}</span>
+              <span class="sp-id">id: {{ item.id }}</span>
+              <span class="sp-time">{{ item.markedAt ? item.markedAt.slice(0,10) : '' }}</span>
+              <button class="sp-del" @click="removeSkipped(item.id)" title="取消标记">✕</button>
+            </div>
+            <div class="sp-q">{{ item.question }}</div>
+            <div class="sp-ans"><span class="sp-lbl">参考答案：</span>{{ item.answer }}</div>
+          </div>
+          <div v-if="skippedList.length === 0" class="sp-empty">暂无已标记题目</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /fb-page -->
 </template>
 
@@ -478,6 +521,7 @@ const { showToast } = useToast()
 const WRONG_KEY   = 'gaoxiang_fillblank_wrong'
 const HISTORY_KEY = 'gaoxiang_fillblank_history'
 const SESSION_KEY = 'gaoxiang_fillblank_sessions'
+const SKIP_KEY    = 'gaoxiang_fillblank_skipped'
 
 // ── 分类名映射 ──
 const CATEGORY_NAMES = {
@@ -548,8 +592,10 @@ const nextFocusRef  = ref(null)
 let inputEnterLocked = false   // 防止"按键穿透"：跳题后短暂屏蔽 input 的 enter
 
 const wrongList      = ref(loadWrongList())
+const skippedList    = ref(loadSkippedList())   // 持久化的已标记题目库
 const historyStats   = ref(loadHistoryStats())
 const sessionHistory = ref(loadSessionHistory())
+const showSkippedPanel = ref(false)
 
 // 是否已经保存过（result阶段）
 const savedThisSession = ref(false)
@@ -561,6 +607,8 @@ let quizStartTime = null
 // ── 工具函数 ──
 function loadWrongList()    { try { return JSON.parse(localStorage.getItem(WRONG_KEY)   || '[]')    } catch { return [] } }
 function saveWrongList()    { localStorage.setItem(WRONG_KEY,   JSON.stringify(wrongList.value))    }
+function loadSkippedList()  { try { return JSON.parse(localStorage.getItem(SKIP_KEY)    || '[]')    } catch { return [] } }
+function saveSkippedList()  { localStorage.setItem(SKIP_KEY,    JSON.stringify(skippedList.value))  }
 function loadHistoryStats() {
   try {
     const r = JSON.parse(localStorage.getItem(HISTORY_KEY) || 'null')
@@ -749,7 +797,47 @@ function skipCurrent() {
   submittedFlags.value[currentIndex.value] = true
   submittedFlags.value = [...submittedFlags.value]
   userAnswers.value[currentIndex.value] = ''   // 清空输入，不参与评分
+
+  // 持久化：将题目保存到 skippedList（去重）
+  const q = questions.value[currentIndex.value]
+  const existingIds = new Set(skippedList.value.map(s => s.id))
+  if (!existingIds.has(q.id)) {
+    skippedList.value.push({
+      id:       q.id,
+      category: q.category,
+      question: q.question,
+      answer:   q.answer,
+      analysis: q.analysis || '',
+      keywords: q.keywords || [],
+      markedAt: new Date().toISOString(),   // 标记时间，方便溯源
+    })
+    saveSkippedList()
+  }
+
   nextTick(() => nextFocusRef.value?.focus())
+}
+
+// ── 已标记题目管理 ──
+function removeSkipped(id) {
+  skippedList.value = skippedList.value.filter(s => s.id !== id)
+  saveSkippedList()
+}
+
+function clearSkippedList() {
+  if (!confirm(`确认清空全部 ${skippedList.value.length} 条标记记录？此操作不可撤销。`)) return
+  skippedList.value = []
+  saveSkippedList()
+}
+
+function exportSkippedJson() {
+  const data = JSON.stringify(skippedList.value, null, 2)
+  const blob = new Blob([data], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `skipped_questions_${new Date().toISOString().slice(0,10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function handleEnterAfterSubmit() {
@@ -1050,6 +1138,87 @@ watch(currentIndex, () => {
   transition: all 0.15s;
 }
 .wrong-entry:hover { background: #ffedd5; }
+
+/* 已标记题目入口 */
+.skip-entry {
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #92400e;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.skip-entry:hover { background: #fef3c7; }
+
+/* 统计 sn-item skip */
+.sn-item.skip .sn-val { color: #d97706; }
+
+/* ── 已标记题目弹窗 ── */
+.skip-panel-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 9999; display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 12px; overflow-y: auto;
+}
+.skip-panel {
+  background: #fff; border-radius: 14px; width: 100%; max-width: 780px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column;
+  max-height: 88vh;
+}
+.sp-header {
+  display: flex; align-items: center; gap: 8px; padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6; flex-wrap: wrap;
+}
+.sp-title { font-size: 1rem; font-weight: 700; color: #1f2937; flex: 1; }
+.sp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sp-btn-export {
+  padding: 6px 12px; background: #eff6ff; color: #1d4ed8;
+  border: 1.5px solid #bfdbfe; border-radius: 7px; font-size: 0.78rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.sp-btn-export:hover { background: #dbeafe; }
+.sp-btn-clear {
+  padding: 6px 12px; background: #fef2f2; color: #dc2626;
+  border: 1.5px solid #fecaca; border-radius: 7px; font-size: 0.78rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.sp-btn-clear:hover { background: #fee2e2; }
+.sp-btn-close {
+  padding: 6px 12px; background: #f9fafb; color: #6b7280;
+  border: 1px solid #e5e7eb; border-radius: 7px; font-size: 0.78rem;
+  cursor: pointer; transition: all 0.15s;
+}
+.sp-btn-close:hover { background: #f3f4f6; }
+.sp-desc {
+  padding: 10px 20px; font-size: 0.75rem; color: #6b7280;
+  background: #fffbeb; border-bottom: 1px solid #fde68a;
+}
+.sp-list {
+  overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.sp-item {
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px;
+  padding: 10px 14px; position: relative;
+}
+.sp-item-header {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap;
+}
+.sp-num   { font-size: 0.68rem; color: #bbb; width: 18px; }
+.sp-cat   { font-size: 0.68rem; color: #888; background: #f3f4f6; padding: 1px 6px; border-radius: 8px; }
+.sp-id    { font-size: 0.65rem; color: #aaa; font-family: monospace; }
+.sp-time  { font-size: 0.65rem; color: #d97706; }
+.sp-del   {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: #d97706; font-size: 0.75rem; padding: 2px 6px;
+  border-radius: 5px; transition: background 0.15s;
+}
+.sp-del:hover { background: #fef3c7; }
+.sp-q   { font-size: 0.82rem; color: #374151; line-height: 1.5; margin-bottom: 4px; }
+.sp-ans { font-size: 0.75rem; color: #6b7280; }
+.sp-lbl { color: #9ca3af; margin-right: 4px; }
+.sp-empty { text-align: center; color: #9ca3af; padding: 32px; font-size: 0.85rem; }
 
 /* 开始按钮 */
 .start-btn {
