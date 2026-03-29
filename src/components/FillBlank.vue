@@ -142,6 +142,7 @@
             <span><i class="dot unanswered"></i>未作答</span>
             <span><i class="dot correct"></i>正确</span>
             <span><i class="dot wrong"></i>错误</span>
+            <span><i class="dot skipped"></i>跳过</span>
           </div>
           <div class="ac-prog-text">已提交 {{ submittedCount }}/{{ questions.length }}</div>
           <div class="ac-prog-bar"><div class="ac-prog-fill" :style="{ width: (submittedCount/questions.length*100) + '%' }"></div></div>
@@ -188,10 +189,15 @@
               placeholder="输入答案，回车提交..."
               @keyup.enter="onInputEnter"
             />
+            <button class="qp-skip" @click="skipCurrent" title="题目无法作答或上下文不全，跳过不计分">⚠️ 跳过</button>
             <button class="qp-submit" @click="submitCurrent">提交</button>
           </div>
 
           <div v-if="submittedFlags[currentIndex]" class="qp-analysis">
+            <!-- 跳过状态 -->
+            <div v-if="skippedFlags[currentIndex]" class="qa-skipped-banner">
+              ⚠️ 已跳过 · 题目无法作答或上下文不全，不计入正确率
+            </div>
             <div class="qa-row">
               <span class="qa-lbl ok">✅ 参考答案：</span>
               <span class="qa-val">{{ currentQ.answer }}</span>
@@ -200,7 +206,7 @@
               <span class="qa-lbl">📖 解析：</span>
               <span class="qa-val gray">{{ currentQ.analysis }}</span>
             </div>
-            <div class="qa-judge" :class="isCorrect(currentIndex) ? 'j-ok' : 'j-err'">
+            <div v-if="!skippedFlags[currentIndex]" class="qa-judge" :class="isCorrect(currentIndex) ? 'j-ok' : 'j-err'">
               {{ isCorrect(currentIndex) ? '✓ 回答正确' : '✗ 回答有误，记住正确答案' }}
             </div>
             <!-- 回车跳下一题的隐藏焦点盒 -->
@@ -228,9 +234,10 @@
           <div class="res-score">
             <span class="rs-c" :class="scoreClass">{{ correctCount }}</span>
             <span class="rs-sep">/</span>
-            <span class="rs-t">{{ questions.length }}</span>
+            <span class="rs-t">{{ answeredCount }}</span>
           </div>
           <div class="res-acc" :class="scoreClass">正确率 {{ accuracyPercent }}%</div>
+          <div v-if="skippedCount > 0" class="res-skipped-info">⚠️ 跳过 {{ skippedCount }} 题（不计入正确率）</div>
           <div class="res-btns">
             <button class="res-btn again" @click="restartPractice">🔄 再练一次</button>
             <button class="res-btn back" @click="handleBack">返回主页</button>
@@ -265,12 +272,12 @@
         <!-- 全题回顾（第二行右） -->
         <div class="res-all-card">
           <div class="card-title">全部题目回顾</div>
-          <div v-for="(q, i) in questions" :key="i" class="ra-item" :class="isCorrect(i) ? 'ra-ok' : 'ra-err'">
+          <div v-for="(q, i) in questions" :key="i" class="ra-item" :class="skippedFlags[i] ? 'ra-skip' : isCorrect(i) ? 'ra-ok' : 'ra-err'">
             <div class="ra-header">
               <span class="ra-num">{{ i + 1 }}</span>
               <span class="ra-cat">{{ categoryName(q.category) }}</span>
-              <span class="ra-badge" :class="isCorrect(i) ? 'badge-ok' : 'badge-err'">
-                {{ isCorrect(i) ? '✓ 正确' : '✗ 错误' }}
+              <span class="ra-badge" :class="skippedFlags[i] ? 'badge-skip' : isCorrect(i) ? 'badge-ok' : 'badge-err'">
+                {{ skippedFlags[i] ? '⚠ 跳过' : isCorrect(i) ? '✓ 正确' : '✗ 错误' }}
               </span>
             </div>
             <div class="ra-q">{{ q.question }}</div>
@@ -396,21 +403,22 @@
                 v-for="(item, i) in viewingRecord.items"
                 :key="i"
                 class="hd-item"
-                :class="item.isCorrect ? 'hd-ok' : 'hd-err'"
+                :class="item.isSkipped ? 'hd-skip' : item.isCorrect ? 'hd-ok' : 'hd-err'"
               >
                 <div class="hd-item-header">
                   <span class="hd-num">{{ i + 1 }}</span>
                   <span class="hd-cat">{{ categoryName(item.category) }}</span>
-                  <span class="hd-badge" :class="item.isCorrect ? 'badge-ok' : 'badge-err'">
-                    {{ item.isCorrect ? '✓' : '✗' }}
+                  <span class="hd-badge" :class="item.isSkipped ? 'badge-skip' : item.isCorrect ? 'badge-ok' : 'badge-err'">
+                    {{ item.isSkipped ? '⚠ 跳过' : item.isCorrect ? '✓' : '✗' }}
                   </span>
                 </div>
                 <div class="hd-q">{{ item.question }}</div>
-                <div class="hd-ans-row">
+                <div v-if="item.isSkipped" class="hd-ans-row" style="color:#d97706;font-size:0.75rem;">⚠️ 已跳过·题目无法作答或上下文不全</div>
+                <div v-else class="hd-ans-row">
                   <span class="hd-lbl">你的答案：</span>
                   <span :class="item.isCorrect ? 'ans-ok' : 'ans-err'">{{ item.userAnswer || '（未填写）' }}</span>
                 </div>
-                <div v-if="!item.isCorrect" class="hd-ans-row">
+                <div v-if="!item.isCorrect && !item.isSkipped" class="hd-ans-row">
                   <span class="hd-lbl">正确答案：</span>
                   <span class="ans-ok">{{ item.answer }}</span>
                 </div>
@@ -534,6 +542,7 @@ const questions      = ref([])
 const currentIndex   = ref(0)
 const userAnswers    = ref([])
 const submittedFlags = ref([])
+const skippedFlags   = ref([])   // 跳过标记（与 questions 等长）
 const answerInputRef = ref(null)
 const nextFocusRef  = ref(null)
 let inputEnterLocked = false   // 防止"按键穿透"：跳题后短暂屏蔽 input 的 enter
@@ -581,9 +590,10 @@ function clampCustom()   {
 function cardBtnClass(i) {
   return {
     cur:     i === currentIndex.value,
-    correct: submittedFlags.value[i] && isCorrect(i)  && i !== currentIndex.value,
-    wrong:   submittedFlags.value[i] && !isCorrect(i) && i !== currentIndex.value,
-    done:    submittedFlags.value[i] && i !== currentIndex.value,
+    skipped: skippedFlags.value[i] && i !== currentIndex.value,
+    correct: submittedFlags.value[i] && !skippedFlags.value[i] && isCorrect(i)  && i !== currentIndex.value,
+    wrong:   submittedFlags.value[i] && !skippedFlags.value[i] && !isCorrect(i) && i !== currentIndex.value,
+    done:    submittedFlags.value[i] && !skippedFlags.value[i] && i !== currentIndex.value,
   }
 }
 
@@ -615,14 +625,17 @@ function isCorrect(idx) {
   return false
 }
 
-const correctCount    = computed(() => questions.value.filter((_, i) => isCorrect(i)).length)
-const accuracyPercent = computed(() => questions.value.length ? Math.round(correctCount.value / questions.value.length * 100) : 0)
+const correctCount    = computed(() => questions.value.filter((_, i) => !skippedFlags.value[i] && isCorrect(i)).length)
+const skippedCount    = computed(() => skippedFlags.value.filter(Boolean).length)
+const answeredCount   = computed(() => questions.value.length - skippedCount.value)
+const accuracyPercent = computed(() => answeredCount.value ? Math.round(correctCount.value / answeredCount.value * 100) : 0)
 const scoreClass      = computed(() => { const p = accuracyPercent.value; return p >= 80 ? 'score-great' : p >= 60 ? 'score-good' : 'score-poor' })
 const resultIcon      = computed(() => { const p = accuracyPercent.value; return p >= 90 ? '🏆' : p >= 70 ? '🎯' : p >= 50 ? '📚' : '💪' })
 
 const wrongInSession = computed(() =>
-  questions.value.map((q, i) => ({ ...q, userAnswer: userAnswers.value[i], origIndex: i }))
-    .filter((_, i) => !isCorrect(i))
+  questions.value
+    .map((q, i) => ({ ...q, userAnswer: userAnswers.value[i], origIndex: i, isSkipped: skippedFlags.value[i] }))
+    .filter((item, i) => !skippedFlags.value[i] && !isCorrect(i))
 )
 
 const categoryStats = computed(() => {
@@ -701,6 +714,7 @@ function initQuiz(qs) {
   currentIndex.value = 0
   userAnswers.value = new Array(qs.length).fill('')
   submittedFlags.value = new Array(qs.length).fill(false)
+  skippedFlags.value = new Array(qs.length).fill(false)
   savedThisSession.value = false
   stage.value = 'quiz'
   quizStartTime = Date.now()
@@ -726,6 +740,15 @@ function submitCurrent() {
   submittedFlags.value[currentIndex.value] = true
   submittedFlags.value = [...submittedFlags.value]
   // 提交后焦点移到「回车→下一题」提示框
+  nextTick(() => nextFocusRef.value?.focus())
+}
+
+function skipCurrent() {
+  skippedFlags.value[currentIndex.value] = true
+  skippedFlags.value = [...skippedFlags.value]
+  submittedFlags.value[currentIndex.value] = true
+  submittedFlags.value = [...submittedFlags.value]
+  userAnswers.value[currentIndex.value] = ''   // 清空输入，不参与评分
   nextTick(() => nextFocusRef.value?.focus())
 }
 
@@ -761,8 +784,8 @@ async function finishQuiz() {
   submittedFlags.value = submittedFlags.value.map(() => true)
   const durationMin = quizStartTime ? Math.round((Date.now() - quizStartTime) / 60000) : Math.round(questions.value.length * 1.5)
 
-  // 更新错题本
-  const correctIds = questions.value.filter((_, i) => isCorrect(i)).map(q => q.id)
+  // 更新错题本（跳过的题不加入错题本，答对的从错题本移除）
+  const correctIds = questions.value.filter((_, i) => !skippedFlags.value[i] && isCorrect(i)).map(q => q.id)
   wrongList.value = wrongList.value.filter(w => !correctIds.includes(w.id))
   const wrongIds = new Set(wrongList.value.map(w => w.id))
   wrongInSession.value.forEach(item => {
@@ -770,12 +793,13 @@ async function finishQuiz() {
   })
   saveWrongList()
 
-  // 更新汇总统计
+  // 更新汇总统计（基于实际作答题数）
   const acc = accuracyPercent.value
+  const answered = answeredCount.value
   historyStats.value.sessions++
-  historyStats.value.total   += questions.value.length
+  historyStats.value.total   += answered
   historyStats.value.correct += correctCount.value
-  historyStats.value.accuracy = Math.round(historyStats.value.correct / historyStats.value.total * 100)
+  historyStats.value.accuracy = historyStats.value.total > 0 ? Math.round(historyStats.value.correct / historyStats.value.total * 100) : 0
   historyStats.value.bestAccuracy = Math.max(historyStats.value.bestAccuracy || 0, acc)
   historyStats.value.wrongCount = wrongList.value.length
   saveHistoryStats()
@@ -783,13 +807,16 @@ async function finishQuiz() {
   // 保存本次详细记录
   const today = getTodayString()
   sessionHistory.value.unshift({
-    date: today, time: nowTime(), total: questions.value.length,
+    date: today, time: nowTime(), total: answered,
     correct: correctCount.value, wrongCount: wrongInSession.value.length,
+    skipped: skippedCount.value,
     accuracy: acc, duration: durationMin,
     items: questions.value.map((q, i) => ({
       id: q.id, category: q.category, question: q.question,
       answer: q.answer, analysis: q.analysis, keywords: q.keywords,
-      userAnswer: userAnswers.value[i] || '', isCorrect: isCorrect(i),
+      userAnswer: userAnswers.value[i] || '',
+      isCorrect: !skippedFlags.value[i] && isCorrect(i),
+      isSkipped: skippedFlags.value[i],
     })),
   })
   saveSessionHistory()
@@ -1126,9 +1153,10 @@ watch(currentIndex, () => {
   justify-content: center;
 }
 .ac-btn.cur     { border-color: #667eea; background: #667eea; color: white; }
+.ac-btn.skipped { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
 .ac-btn.correct { border-color: #10b981; background: #d1fae5; color: #065f46; }
 .ac-btn.wrong   { border-color: #ef4444; background: #fee2e2; color: #991b1b; }
-.ac-btn.done:not(.correct):not(.wrong) { border-color: #a5b4fc; background: #e0e7ff; color: #4338ca; }
+.ac-btn.done:not(.correct):not(.wrong):not(.skipped) { border-color: #a5b4fc; background: #e0e7ff; color: #4338ca; }
 
 .ac-legend { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; font-size: 0.68rem; color: #aaa; }
 .ac-legend span { display: flex; align-items: center; gap: 5px; }
@@ -1136,6 +1164,7 @@ watch(currentIndex, () => {
 .dot.unanswered { background: #f9fafb; border-color: #e5e7eb; }
 .dot.correct    { background: #d1fae5; border-color: #10b981; }
 .dot.wrong      { background: #fee2e2; border-color: #ef4444; }
+.dot.skipped    { background: #fef3c7; border-color: #f59e0b; }
 
 .ac-prog-text { font-size: 0.72rem; color: #aaa; text-align: center; margin-bottom: 4px; }
 .ac-prog-bar { height: 4px; background: #eee; border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
@@ -1218,6 +1247,43 @@ watch(currentIndex, () => {
   transition: all 0.2s;
 }
 .qp-submit:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(102,126,234,0.4); }
+
+/* 跳过按钮 */
+.qp-skip {
+  padding: 9px 14px;
+  background: #fffbeb;
+  color: #d97706;
+  border: 1.5px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.qp-skip:hover { background: #fef3c7; border-color: #f59e0b; transform: translateY(-1px); }
+
+/* 跳过提示横幅 */
+.qa-skipped-banner {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  color: #d97706;
+  font-weight: 600;
+}
+
+/* 结果页跳过提示 */
+.res-skipped-info {
+  font-size: 0.75rem;
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-weight: 600;
+}
 
 .qp-analysis {
   background: #f8f9ff;
@@ -1367,12 +1433,14 @@ watch(currentIndex, () => {
 .ra-item { padding: 8px; border-radius: 7px; margin-bottom: 6px; border-left: 3px solid transparent; }
 .ra-item.ra-ok  { background: #f0fdf4; border-left-color: #34d399; }
 .ra-item.ra-err { background: #fef2f2; border-left-color: #f87171; }
+.ra-item.ra-skip { background: #fffbeb; border-left-color: #fbbf24; }
 .ra-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .ra-num    { font-size: 0.7rem; color: #bbb; width: 18px; }
 .ra-cat    { font-size: 0.68rem; color: #888; background: #f3f4f6; padding: 1px 6px; border-radius: 8px; }
 .ra-badge  { margin-left: auto; font-size: 0.7rem; font-weight: 700; padding: 1px 8px; border-radius: 8px; }
-.badge-ok  { background: #d1fae5; color: #065f46; }
-.badge-err { background: #fee2e2; color: #991b1b; }
+.badge-ok   { background: #d1fae5; color: #065f46; }
+.badge-err  { background: #fee2e2; color: #991b1b; }
+.badge-skip { background: #fef3c7; color: #92400e; }
 .ra-q    { font-size: 0.82rem; color: #333; line-height: 1.5; margin-bottom: 4px; }
 .ra-ans  { font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .ra-lbl  { color: #aaa; }
@@ -1546,8 +1614,9 @@ watch(currentIndex, () => {
 
 .hd-items { display: flex; flex-direction: column; gap: 10px; }
 .hd-item { padding: 10px 12px; border-radius: 8px; border-left: 3px solid transparent; }
-.hd-item.hd-ok  { background: #f0fdf4; border-left-color: #34d399; }
-.hd-item.hd-err { background: #fef2f2; border-left-color: #f87171; }
+.hd-item.hd-ok   { background: #f0fdf4; border-left-color: #34d399; }
+.hd-item.hd-err  { background: #fef2f2; border-left-color: #f87171; }
+.hd-item.hd-skip { background: #fffbeb; border-left-color: #fbbf24; }
 .hd-item-header { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
 .hd-num  { font-size: 0.7rem; color: #bbb; width: 18px; }
 .hd-cat  { font-size: 0.68rem; color: #888; background: #f3f4f6; padding: 1px 6px; border-radius: 8px; }
