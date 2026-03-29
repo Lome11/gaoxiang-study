@@ -332,59 +332,23 @@
           <div v-else class="hsp-empty">完成更多练习后显示</div>
         </div>
 
-        <!-- 右：每日正确率折线图 -->
+        <!-- 右：每次正确率趋势（ECharts 双折线） -->
         <div class="hs-trend-panel">
-          <div class="hsp-title">每日正确率趋势</div>
-          <div v-if="dailyTrend.length >= 1" class="trend-wrap">
-            <svg class="trend-svg" viewBox="0 0 300 90" preserveAspectRatio="none">
-              <!-- Y轴参考线 -->
-              <line x1="0" y1="18" x2="300" y2="18" stroke="#f0f0f0" stroke-width="1"/>
-              <line x1="0" y1="36" x2="300" y2="36" stroke="#f0f0f0" stroke-width="1"/>
-              <line x1="0" y1="54" x2="300" y2="54" stroke="#f0f0f0" stroke-width="1"/>
-              <line x1="0" y1="72" x2="300" y2="72" stroke="#f0f0f0" stroke-width="1"/>
-              <!-- Y轴标签 -->
-              <text x="4" y="17" font-size="8" fill="#ccc">100%</text>
-              <text x="4" y="53" font-size="8" fill="#ccc">50%</text>
-              <text x="4" y="89" font-size="8" fill="#ccc">0%</text>
-              <!-- 渐变填充 -->
-              <polygon :points="trendFillPoints" fill="url(#trendGrad)" opacity="0.2"/>
-              <!-- 折线 -->
-              <polyline :points="trendLinePoints" fill="none" stroke="#667eea" stroke-width="2" stroke-linejoin="round"/>
-              <!-- 数据点 -->
-              <circle
-                v-for="(pt, i) in trendPoints"
-                :key="i"
-                :cx="pt.x" :cy="pt.y" r="3.5"
-                :fill="pt.acc >= 80 ? '#34d399' : pt.acc >= 60 ? '#fbbf24' : '#f87171'"
-                stroke="white" stroke-width="1.5"
-              />
-              <!-- 数据点数值 -->
-              <text
-                v-for="(pt, i) in trendPoints"
-                :key="'l'+i"
-                :x="pt.x" :y="pt.y - 6"
-                text-anchor="middle"
-                font-size="7.5"
-                :fill="pt.acc >= 80 ? '#059669' : pt.acc >= 60 ? '#d97706' : '#dc2626'"
-                font-weight="600"
-              >{{ pt.acc }}%</text>
-              <defs>
-                <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#667eea"/>
-                  <stop offset="100%" stop-color="#667eea" stop-opacity="0"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <!-- X轴日期 -->
-            <div class="trend-xaxis">
-              <span v-for="(d, i) in dailyTrendLabels" :key="i" class="trend-xlabel">{{ d }}</span>
-            </div>
-          </div>
+          <div class="hsp-title">📈 每次正确率趋势</div>
+          <div v-if="sessionHistory.length >= 1" ref="sessionChartRef" class="echarts-wrap"></div>
           <div v-else class="hsp-empty">
             <div class="hsp-empty-icon">📈</div>
             <div>完成第一次练习后<br>即可显示趋势</div>
           </div>
         </div>
+      </div>
+
+      <!-- ================================================================
+           每日正确率趋势（按日期聚合，ECharts 双折线）
+      ================================================================ -->
+      <div v-if="sessionHistory.length >= 1" class="fb-daily-trend-section">
+        <div class="dts-title">📅 每日正确率趋势</div>
+        <div ref="dailyChartRef" class="echarts-wrap-daily"></div>
       </div>
 
       <!-- ================================================================
@@ -508,9 +472,14 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { generateQuestions, FILL_BLANK_QUESTIONS } from '../data/fillBlankQuestions.js'
 import { useStudyStore, getTodayString } from '../store/useStudyStore.js'
+import * as echarts from 'echarts/core'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer])
 import { useToast } from '../composables/useToast.js'
 
 const emit = defineEmits(['back'])
@@ -699,43 +668,224 @@ const categoryStats = computed(() => {
   }))
 })
 
-// ── 历史分析：每次练习趋势（按次，不按天聚合，最近10次）──
-const dailyTrend = computed(() => {
+// ── 历史分析：每次练习趋势（按练习次序，全量）──
+const sessionTrendData = computed(() => {
   return [...sessionHistory.value]
-    .reverse()          // 最早的在前
-    .slice(-10)
-    .map(rec => ({
-      date: (rec.date || '').slice(5) + (rec.time ? ' ' + rec.time.slice(0,5) : ''),
-      correct: rec.correct, total: rec.total,
+    .reverse()   // 最早的在前
+    .map((rec, i) => ({
+      label: `第${i + 1}次\n${(rec.date || '').slice(5)} ${(rec.time || '').slice(0, 5)}`,
       acc: rec.total > 0 ? Math.round(rec.correct / rec.total * 100) : 0,
+      total: rec.total,
     }))
 })
 
-const dailyTrendLabels = computed(() => dailyTrend.value.map(d => d.date))
-
-// SVG 坐标（viewBox 0 0 300 90，底部留10px给x轴）
-const trendPoints = computed(() => {
-  const data = dailyTrend.value
-  if (data.length < 1) return []
-  const n = data.length
-  // 只有1个点时居中显示
-  return data.map((d, i) => ({
-    x: n === 1 ? 150 : (i / (n - 1)) * 270 + 20,
-    y: 82 - (d.acc / 100) * 72,
-    acc: d.acc,
-  }))
+// ── 历史分析：每日汇总趋势（按日期聚合）──
+const dailyAggregateTrend = computed(() => {
+  const map = {}
+  sessionHistory.value.forEach(rec => {
+    const d = rec.date || '未知'
+    if (!map[d]) map[d] = { correct: 0, total: 0 }
+    map[d].correct += rec.correct || 0
+    map[d].total   += rec.total   || 0
+  })
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date,
+      acc: v.total > 0 ? Math.round(v.correct / v.total * 100) : 0,
+      total: v.total,
+    }))
 })
 
-const trendLinePoints = computed(() =>
-  trendPoints.value.map(p => `${p.x},${p.y}`).join(' ')
-)
+// ── ECharts 图表 refs & instances ──
+const sessionChartRef = ref(null)
+const dailyChartRef   = ref(null)
+let sessionChartInst  = null
+let dailyChartInst    = null
 
-const trendFillPoints = computed(() => {
-  const pts = trendPoints.value
-  if (!pts.length) return ''
-  const line = pts.map(p => `${p.x},${p.y}`).join(' ')
-  return `${pts[0].x},82 ${line} ${pts[pts.length-1].x},82`
+function buildSessionChartOption(data) {
+  const labels = data.map(d => d.label)
+  const accData = data.map(d => d.acc)
+  const totalData = data.map(d => d.total)
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      formatter(params) {
+        const p0 = params[0], p1 = params[1]
+        return `<div style="font-size:12px;line-height:1.8">
+          <div style="color:#999">${p0.name.replace('\n', ' ')}</div>
+          <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#667eea;margin-right:5px"></span>正确率：<b style="color:#667eea">${p0.value}%</b></div>
+          <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399;margin-right:5px"></span>做题数：<b style="color:#34d399">${p1.value} 题</b></div>
+        </div>`
+      }
+    },
+    legend: {
+      data: ['正确率(%)', '做题数'],
+      top: 4,
+      textStyle: { fontSize: 11, color: '#666' },
+    },
+    grid: { left: 40, right: 50, top: 36, bottom: 60 },
+    dataZoom: [
+      { type: 'inside', start: Math.max(0, 100 - Math.round(15 / data.length * 100)), end: 100 },
+      { type: 'slider', height: 18, bottom: 4, borderColor: '#e0e0e0', fillerColor: 'rgba(102,126,234,0.15)', handleStyle: { color: '#667eea' }, textStyle: { fontSize: 10 } },
+    ],
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLabel: {
+        fontSize: 10, color: '#888',
+        formatter: v => v.split('\n')[1] || v,
+        rotate: data.length > 10 ? 30 : 0,
+      },
+      axisTick: { alignWithLabel: true },
+    },
+    yAxis: [
+      {
+        type: 'value', name: '正确率(%)', nameTextStyle: { fontSize: 10, color: '#667eea' },
+        min: 0, max: 100, splitNumber: 5,
+        axisLabel: { fontSize: 10, color: '#667eea', formatter: '{value}%' },
+        splitLine: { lineStyle: { color: '#f5f5f5' } },
+      },
+      {
+        type: 'value', name: '做题数', nameTextStyle: { fontSize: 10, color: '#34d399' },
+        min: 0,
+        axisLabel: { fontSize: 10, color: '#34d399' },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '正确率(%)', type: 'line', yAxisIndex: 0, data: accData,
+        smooth: true,
+        symbol: 'circle', symbolSize: 6,
+        lineStyle: { color: '#667eea', width: 2.5 },
+        itemStyle: { color: '#667eea', borderColor: '#fff', borderWidth: 2 },
+        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(102,126,234,0.25)' }, { offset: 1, color: 'rgba(102,126,234,0)' }] } },
+        label: { show: data.length <= 20, position: 'top', fontSize: 10, color: '#667eea', formatter: '{c}%' },
+      },
+      {
+        name: '做题数', type: 'line', yAxisIndex: 1, data: totalData,
+        smooth: true,
+        symbol: 'circle', symbolSize: 6,
+        lineStyle: { color: '#34d399', width: 2, type: 'dashed' },
+        itemStyle: { color: '#34d399', borderColor: '#fff', borderWidth: 2 },
+        label: { show: data.length <= 20, position: 'bottom', fontSize: 10, color: '#34d399', formatter: '{c}题' },
+      },
+    ],
+  }
+}
+
+function buildDailyChartOption(data) {
+  const labels = data.map(d => d.date.slice(5))  // MM-DD
+  const accData = data.map(d => d.acc)
+  const totalData = data.map(d => d.total)
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      formatter(params) {
+        const p0 = params[0], p1 = params[1]
+        return `<div style="font-size:12px;line-height:1.8">
+          <div style="color:#999">${data[p0.dataIndex]?.date || ''}</div>
+          <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-right:5px"></span>正确率：<b style="color:#f59e0b">${p0.value}%</b></div>
+          <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#60a5fa;margin-right:5px"></span>做题数：<b style="color:#60a5fa">${p1.value} 题</b></div>
+        </div>`
+      }
+    },
+    legend: {
+      data: ['当日正确率(%)', '当日做题数'],
+      top: 4,
+      textStyle: { fontSize: 11, color: '#666' },
+    },
+    grid: { left: 40, right: 50, top: 36, bottom: 60 },
+    dataZoom: [
+      { type: 'inside', start: Math.max(0, 100 - Math.round(14 / data.length * 100)), end: 100 },
+      { type: 'slider', height: 18, bottom: 4, borderColor: '#e0e0e0', fillerColor: 'rgba(245,158,11,0.15)', handleStyle: { color: '#f59e0b' }, textStyle: { fontSize: 10 } },
+    ],
+    xAxis: {
+      type: 'category', data: labels,
+      axisLabel: { fontSize: 11, color: '#888', rotate: data.length > 10 ? 30 : 0 },
+      axisTick: { alignWithLabel: true },
+    },
+    yAxis: [
+      {
+        type: 'value', name: '正确率(%)', nameTextStyle: { fontSize: 10, color: '#f59e0b' },
+        min: 0, max: 100, splitNumber: 5,
+        axisLabel: { fontSize: 10, color: '#f59e0b', formatter: '{value}%' },
+        splitLine: { lineStyle: { color: '#f5f5f5' } },
+      },
+      {
+        type: 'value', name: '做题数', nameTextStyle: { fontSize: 10, color: '#60a5fa' },
+        min: 0,
+        axisLabel: { fontSize: 10, color: '#60a5fa' },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '当日正确率(%)', type: 'line', yAxisIndex: 0, data: accData,
+        smooth: true,
+        symbol: 'circle', symbolSize: 7,
+        lineStyle: { color: '#f59e0b', width: 2.5 },
+        itemStyle: { color: '#f59e0b', borderColor: '#fff', borderWidth: 2 },
+        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(245,158,11,0.25)' }, { offset: 1, color: 'rgba(245,158,11,0)' }] } },
+        label: { show: data.length <= 15, position: 'top', fontSize: 10, color: '#f59e0b', formatter: '{c}%' },
+        markLine: {
+          silent: true,
+          lineStyle: { color: '#f59e0b', type: 'dashed', opacity: 0.5 },
+          data: [{ type: 'average', name: '平均' }],
+          label: { formatter: '均{c}%', fontSize: 10 },
+        },
+      },
+      {
+        name: '当日做题数', type: 'line', yAxisIndex: 1, data: totalData,
+        smooth: true,
+        symbol: 'circle', symbolSize: 7,
+        lineStyle: { color: '#60a5fa', width: 2, type: 'dashed' },
+        itemStyle: { color: '#60a5fa', borderColor: '#fff', borderWidth: 2 },
+        label: { show: data.length <= 15, position: 'bottom', fontSize: 10, color: '#60a5fa', formatter: '{c}题' },
+      },
+    ],
+  }
+}
+
+function initOrUpdateSessionChart() {
+  if (!sessionChartRef.value) return
+  if (!sessionChartInst) sessionChartInst = echarts.init(sessionChartRef.value)
+  sessionChartInst.setOption(buildSessionChartOption(sessionTrendData.value), true)
+}
+function initOrUpdateDailyChart() {
+  if (!dailyChartRef.value) return
+  if (!dailyChartInst) dailyChartInst = echarts.init(dailyChartRef.value)
+  dailyChartInst.setOption(buildDailyChartOption(dailyAggregateTrend.value), true)
+}
+
+onMounted(() => {
+  nextTick(() => {
+    if (sessionHistory.value.length >= 1) {
+      initOrUpdateSessionChart()
+      initOrUpdateDailyChart()
+    }
+  })
 })
+
+onBeforeUnmount(() => {
+  sessionChartInst?.dispose(); sessionChartInst = null
+  dailyChartInst?.dispose();   dailyChartInst   = null
+})
+
+watch(sessionHistory, () => {
+  nextTick(() => {
+    initOrUpdateSessionChart()
+    initOrUpdateDailyChart()
+  })
+}, { deep: true })
+
+watch(sessionChartRef, (el) => { if (el && sessionHistory.value.length >= 1) nextTick(initOrUpdateSessionChart) })
+watch(dailyChartRef,   (el) => { if (el && sessionHistory.value.length >= 1) nextTick(initOrUpdateDailyChart) })
+
+
 
 // ── 历史分析：领域强弱 ──
 const categoryAnalysis = computed(() => {
@@ -1658,11 +1808,32 @@ watch(currentIndex, () => {
 .c-mid  { color: #d97706; }
 .c-bad  { color: #dc2626; }
 
-/* 折线图 */
-.trend-wrap { flex: 1; display: flex; flex-direction: column; }
-.trend-svg { width: 100%; flex: 1; min-height: 110px; display: block; }
-.trend-xaxis { display: flex; justify-content: space-between; margin-top: 4px; padding: 0 16px; }
-.trend-xlabel { font-size: 0.65rem; color: #bbb; }
+/* ECharts 容器 */
+.echarts-wrap {
+  width: 100%;
+  height: 240px;
+  flex: 1;
+}
+
+/* 每日汇总趋势区块 */
+.fb-daily-trend-section {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  padding: 16px 16px 12px;
+  margin-top: 0;
+}
+.dts-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.echarts-wrap-daily {
+  width: 100%;
+  height: 260px;
+}
 
 .hsp-empty {
   flex: 1;
